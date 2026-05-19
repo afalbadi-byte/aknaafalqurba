@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 794 1123" width="794" height="1123">
+  <!-- Header band -->
+  <rect x="0" y="0" width="794" height="140" fill="#0b2135"/>
+  <rect x="0" y="140" width="794" height="6" fill="#b8934b"/>
+
+  <!-- Logo -->
+  <g transform="translate(40 30)">
+    <rect width="80" height="80" rx="14" fill="#fff"/>
+    <g transform="translate(40 40)" fill="none" stroke="#0b2135" stroke-width="2" stroke-linecap="round">
+      <path d="M0 -22 L0 8"/>
+      <circle cx="-14" cy="-18" r="3"/>
+      <circle cx="14" cy="-18" r="3"/>
+      <circle cx="0" cy="-25" r="4"/>
+      <path d="M-16 8 Q0 18 16 8"/>
+    </g>
+  </g>
+
+  <!-- Title -->
+  <text x="754" y="60" text-anchor="end" fill="#fff" font-family="Tajawal, sans-serif" font-weight="800" font-size="32">صندوق أكناف القربى</text>
+  <text x="754" y="92" text-anchor="end" fill="#b8934b" font-family="Cairo, sans-serif" font-weight="600" font-size="18">عائلة البادي</text>
+  <text x="754" y="120" text-anchor="end" fill="#dde4ec" font-family="Cairo, sans-serif" font-size="12">«وَآتِ ذَا الْقُرْبَىٰ حَقَّهُ»</text>
+
+  <!-- Footer band -->
+  <rect x="0" y="1080" width="794" height="6" fill="#b8934b"/>
+  <rect x="0" y="1086" width="794" height="37" fill="#0b2135"/>
+  <text x="397" y="1109" text-anchor="middle" fill="#dde4ec" font-family="Cairo, sans-serif" font-size="11">
+    صندوق أكناف القربى — عائلة البادي  ·  info@example.com  ·  ‎05XXXXXXXX
+  </text>
+</svg>

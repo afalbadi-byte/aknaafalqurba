@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { font-family: 'Cairo', 'Tajawal', system-ui, sans-serif; }
+  body {
+    @apply bg-gradient-to-br from-brand-50/40 via-white to-gold-50/30 text-brand-950 antialiased;
+    min-height: 100vh;
+  }
+  h1, h2, h3, h4 { @apply font-display tracking-tight; }
+  input, select, textarea { @apply text-right; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { @apply bg-brand-300 rounded-full; }
+  ::-webkit-scrollbar-track { @apply bg-transparent; }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm;
+  }
+  .btn-primary   { @apply btn bg-brand-950 hover:bg-brand-900 text-white shadow-soft hover:shadow-card; }
+  .btn-gold      { @apply btn bg-gold-500 hover:bg-gold-600 text-white shadow-soft; }
+  .btn-secondary { @apply btn bg-white border border-brand-200 text-brand-800 hover:bg-brand-50; }
+  .btn-ghost     { @apply btn text-brand-700 hover:bg-brand-50; }
+  .btn-danger    { @apply btn bg-red-600 hover:bg-red-700 text-white; }
+
+  .input {
+    @apply w-full bg-white border border-brand-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold-400 focus:border-gold-400 transition placeholder:text-brand-400;
+  }
+  .label { @apply block text-sm font-semibold text-brand-800 mb-1.5; }
+
+  .card      { @apply bg-white rounded-2xl shadow-card border border-brand-100/60 overflow-hidden; }
+  .card-body { @apply p-6; }
+
+  .badge          { @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold; }
+  .badge-pending  { @apply badge bg-amber-100 text-amber-800; }
+  .badge-approved { @apply badge bg-emerald-100 text-emerald-800; }
+  .badge-rejected { @apply badge bg-red-100 text-red-800; }
+  .badge-info     { @apply badge bg-teal-100 text-teal-800; }
+  .badge-gold     { @apply badge bg-gold-100 text-gold-800; }
+
+  .stat-card { @apply card card-body relative overflow-hidden; }
+  .stat-card::before {
+    content: '';
+    @apply absolute -top-8 -left-8 w-24 h-24 rounded-full bg-brand-500/5;
+  }
+
+  .with-watermark { position: relative; }
+  .with-watermark::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url('/brand/watermark.svg');
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 60% auto;
+    opacity: 0.04;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .with-watermark > * { position: relative; z-index: 1; }
+}
+
+@media print {
+  body { background: white; }
+  .no-print { display: none !important; }
+  .print-letterhead {
+    background-image: url('/brand/letterhead.svg');
+    background-size: 100% auto;
+    background-repeat: no-repeat;
+    background-position: top center;
+    padding-top: 180px;
+    padding-bottom: 120px;
+  }
+}

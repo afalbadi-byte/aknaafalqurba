@@ -1,0 +1,94 @@
+// Client-side API helper. All routes are under /api.
+// Cookies are sent automatically (HttpOnly session cookie).
+
+async function call(path: string, opts: RequestInit = {}) {
+  const res  = await fetch(path, {
+    credentials: 'same-origin',
+    ...opts,
+    headers: { ...(opts.body && !(opts.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}), ...opts.headers },
+  })
+  let data: any = {}
+  try { data = await res.json() } catch {}
+  if (!res.ok) {
+    const err = new Error(data?.message || data?.error || `خطأ ${res.status}`) as Error & { code?: string; status?: number }
+    err.code = data?.error
+    err.status = res.status
+    throw err
+  }
+  return data
+}
+
+const post  = (p: string, body?: any)  => call(p, { method: 'POST', body: body instanceof FormData ? body : (body ? JSON.stringify(body) : undefined) })
+const put   = (p: string, body?: any)  => call(p, { method: 'PUT',  body: JSON.stringify(body) })
+const del   = (p: string)              => call(p, { method: 'DELETE' })
+const get   = (p: string)              => call(p)
+
+export const api = {
+  auth: {
+    register:        (d: any)       => post('/api/auth/register', d),
+    login:           (i: string, p: string) => post('/api/auth/login', { identifier: i, password: p }),
+    logout:          ()             => post('/api/auth/logout'),
+    me:              ()             => get('/api/auth/me'),
+    changePassword:  (cur: string, n: string) =>
+      post('/api/auth/change-password', { current_password: cur, new_password: n }),
+  },
+  members: {
+    list:         (status?: string) => get(`/api/members${status ? `?status=${status}` : ''}`),
+    directory:    ()                => get('/api/members/directory'),
+    get:          (id: number)      => get(`/api/members/${id}`),
+    update:       (d: any)          => post('/api/members/update', d),
+    approve:      (id: number)      => post(`/api/members/${id}/approve`),
+    setRole:      (id: number, role: string)   => post(`/api/members/${id}/role`,   { role }),
+    setStatus:    (id: number, status: string) => post(`/api/members/${id}/status`, { status }),
+    dependents:   (memberId?: number) => get(`/api/members/dependents${memberId ? `?member_id=${memberId}` : ''}`),
+    addDependent: (d: any)          => post('/api/members/dependents', d),
+    delDependent: (id: number)      => del(`/api/members/dependents/${id}`),
+  },
+  payments: {
+    create: (fd: FormData)          => post('/api/payments', fd),
+    mine:   ()                      => get('/api/payments/mine'),
+    list:   (status?: string)       => get(`/api/payments${status ? `?status=${status}` : ''}`),
+    review: (id: number, decision: string, notes?: string) =>
+      post(`/api/payments/${id}/review`, { decision, notes }),
+    remove: (id: number)            => del(`/api/payments/${id}`),
+  },
+  expenses: {
+    list:   ()                      => get('/api/expenses'),
+    create: (fd: FormData)          => post('/api/expenses', fd),
+    remove: (id: number)            => del(`/api/expenses/${id}`),
+  },
+  aid: {
+    create: (fd: FormData)          => post('/api/aid', fd),
+    mine:   ()                      => get('/api/aid/mine'),
+    list:   (status?: string)       => get(`/api/aid${status ? `?status=${status}` : ''}`),
+    get:    (id: number)            => get(`/api/aid/${id}`),
+    updateStatus: (id: number, d: any) => post(`/api/aid/${id}/status`, d),
+    addUpdate:    (id: number, d: any) => post(`/api/aid/${id}/updates`, d),
+  },
+  news: {
+    list:   (category?: string)     => get(`/api/news${category ? `?category=${category}` : ''}`),
+    get:    (id: number)            => get(`/api/news/${id}`),
+    create: (fd: FormData)          => post('/api/news', fd),
+    update: (id: number, fd: FormData) => post(`/api/news/${id}`, fd),
+    remove: (id: number)            => del(`/api/news/${id}`),
+  },
+  reports: {
+    dashboard:   ()                 => get('/api/reports/dashboard'),
+    financial:   ()                 => get('/api/reports/financial'),
+    memberStats: ()                 => get('/api/reports/member-stats'),
+  },
+  notifications: {
+    mine:    ()                     => get('/api/notifications'),
+    read:    (id: number)           => post('/api/notifications/read', { id }),
+    readAll: ()                     => post('/api/notifications/read', { all: true }),
+  },
+  settings: {
+    publicGet: ()                   => get('/api/settings/public'),
+    all:       ()                   => get('/api/settings'),
+    update:    (d: any)             => post('/api/settings', d),
+  },
+  gateway: {
+    start:  (d: any)                => post('/api/gateway/start',  d),
+    verify: (pid: number)           => get(`/api/gateway/verify?pid=${pid}`),
+  },
+}

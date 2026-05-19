@@ -1,0 +1,208 @@
+'use client'
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { api } from '@/lib/api-client'
+import { PAYMENT_TYPES } from '@/lib/utils'
+import { Building2, Smartphone, CreditCard, Copy, Check, Upload, Loader2, ArrowRight } from 'lucide-react'
+
+export default function PaymentNew() {
+  const router = useRouter()
+  const [settings, setSettings] = useState<any>({})
+  const [method,   setMethod]   = useState('bank_transfer')
+  const [form,     setForm]     = useState<any>({
+    amount: '', payment_type: 'subscription', reference: '', notes: '',
+    period_year: new Date().getFullYear(), period_month: new Date().getMonth() + 1,
+  })
+  const [file, setFile] = useState<File | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [copied, setCopied] = useState('')
+
+  useEffect(() => {
+    api.settings.publicGet().then(r => {
+      setSettings(r.settings || {})
+      if (r.settings?.subscription_amount && !form.amount) {
+        setForm((f: any) => ({ ...f, amount: r.settings.subscription_amount }))
+      }
+    })
+  }, [])
+
+  function copy(text: string, key: string) {
+    navigator.clipboard.writeText(text)
+    setCopied(key); setTimeout(() => setCopied(''), 2000)
+  }
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault(); setError(''); setBusy(true)
+    try {
+      if (method === 'gateway') {
+        const r = await api.gateway.start({
+          amount: form.amount,
+          payment_type: form.payment_type,
+          period_year: form.period_year, period_month: form.period_month,
+          notes: form.notes, origin: window.location.origin,
+        })
+        if (r?.url) { window.location.href = r.url; return }
+        throw new Error('تعذّر إنشاء فاتورة الدفع')
+      }
+      const fd = new FormData()
+      fd.append('amount', form.amount)
+      fd.append('method', method)
+      fd.append('payment_type', form.payment_type)
+      if (form.reference)    fd.append('reference', form.reference)
+      if (form.notes)        fd.append('notes', form.notes)
+      if (form.period_year)  fd.append('period_year',  String(form.period_year))
+      if (form.period_month) fd.append('period_month', String(form.period_month))
+      if (file)              fd.append('receipt', file)
+      await api.payments.create(fd)
+      router.push('/payments')
+    } catch (err: any) { setError(err.message) }
+    finally { setBusy(false) }
+  }
+
+  const requiresReceipt = method === 'bank_transfer' || method === 'stc_pay'
+  const gatewayReady    = !!settings.gateway_enabled
+
+  return (
+    <div className="max-w-3xl mx-auto space-y-6">
+      <div>
+        <Link href="/payments" className="text-sm text-brand-600 hover:text-brand-950 flex items-center gap-1 mb-2">
+          <ArrowRight size={14} /> العودة لدفعاتي
+        </Link>
+        <h1 className="font-display text-2xl font-extrabold text-brand-950">دفعة جديدة</h1>
+        <p className="text-brand-600 text-sm">سدّد اشتراكك أو أضف تبرعاً للصندوق</p>
+      </div>
+
+      <div className="grid sm:grid-cols-3 gap-3">
+        <MethodBtn icon={Building2}  label="تحويل بنكي" v="bank_transfer" cur={method} on={setMethod} />
+        <MethodBtn icon={Smartphone} label="STC Pay"     v="stc_pay"       cur={method} on={setMethod} />
+        <MethodBtn icon={CreditCard} label="بطاقة دفع"   v="gateway"       cur={method} on={setMethod} />
+      </div>
+
+      {method === 'bank_transfer' && (
+        <div className="card card-body bg-brand-50/40">
+          <h3 className="font-bold text-brand-950 mb-3">بيانات التحويل البنكي</h3>
+          <KV k="اسم الحساب" v={settings.bank_account_name} copyKey="acc" copied={copied} onCopy={copy} />
+          <KV k="البنك"      v={settings.bank_name} />
+          <KV k="IBAN" v={settings.bank_iban} copyKey="iban" copied={copied} onCopy={copy} mono />
+          <div className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            بعد التحويل، ارفع صورة الإيصال أدناه. لن تُحتسب الدفعة حتى يعتمدها أمين الصندوق.
+          </div>
+        </div>
+      )}
+
+      {method === 'stc_pay' && (
+        <div className="card card-body bg-brand-50/40">
+          <h3 className="font-bold text-brand-950 mb-3">تحويل عبر STC Pay</h3>
+          <KV k="الاسم" v={settings.bank_account_name} />
+          <KV k="رقم STC Pay" v={settings.stc_pay_number} copyKey="stc" copied={copied} onCopy={copy} mono />
+          <div className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            بعد التحويل، ارفع صورة الإيصال للاعتماد.
+          </div>
+        </div>
+      )}
+
+      {method === 'gateway' && (
+        <div className={`card card-body ${gatewayReady ? 'bg-emerald-50/40 border border-emerald-200' : 'bg-gold-50/40 border border-gold-200'}`}>
+          <h3 className="font-bold text-brand-950 mb-2">الدفع المباشر بالبطاقة</h3>
+          {gatewayReady ? (
+            <>
+              <p className="text-sm text-brand-700 mb-2">
+                ادفع مباشرة باستخدام <strong>مدى</strong> أو <strong>فيزا/ماستركارد</strong> أو <strong>Apple Pay</strong> عبر بوابة آمنة.
+              </p>
+              <p className="text-xs text-brand-600">يتحمّل الصندوق رسوم البوابة — أنت تدفع المبلغ كاملاً بدون أي زيادة.</p>
+            </>
+          ) : (
+            <p className="text-sm text-brand-700">سيتم تفعيل الدفع المباشر بالبطاقة بعد إتمام التسجيل التجاري. مؤقتاً اختر التحويل البنكي أو STC Pay.</p>
+          )}
+        </div>
+      )}
+
+      <form onSubmit={onSubmit} className="card card-body space-y-4">
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label className="label">المبلغ (ر.س) *</label>
+            <input className="input" type="number" min="1" step="0.01" required
+              value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
+          </div>
+          <div>
+            <label className="label">نوع الدفعة</label>
+            <select className="input" value={form.payment_type}
+              onChange={e => setForm({ ...form, payment_type: e.target.value })}>
+              {Object.entries(PAYMENT_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="label">السنة</label>
+            <input className="input" type="number" value={form.period_year}
+              onChange={e => setForm({ ...form, period_year: e.target.value })} />
+          </div>
+          <div>
+            <label className="label">الشهر</label>
+            <select className="input" value={form.period_month}
+              onChange={e => setForm({ ...form, period_month: e.target.value })}>
+              {Array.from({ length: 12 }, (_, i) => i + 1).map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+          <div className="sm:col-span-2">
+            <label className="label">رقم المرجع / العملية</label>
+            <input className="input" placeholder="REF12345"
+              value={form.reference} onChange={e => setForm({ ...form, reference: e.target.value })} />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="label">ملاحظات</label>
+            <textarea className="input" rows={3}
+              value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
+          </div>
+          {requiresReceipt && (
+            <div className="sm:col-span-2">
+              <label className="label">إيصال التحويل *</label>
+              <label className="flex items-center justify-center gap-2 border-2 border-dashed border-brand-200 rounded-lg py-6 cursor-pointer hover:bg-brand-50 transition">
+                <Upload className="text-brand-500" size={20} />
+                <span className="text-sm text-brand-700">{file ? file.name : 'اضغط لرفع صورة الإيصال (JPG / PNG / PDF)'}</span>
+                <input type="file" hidden accept="image/*,application/pdf"
+                  onChange={e => setFile(e.target.files?.[0] || null)} required={requiresReceipt} />
+              </label>
+            </div>
+          )}
+        </div>
+        {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">{error}</div>}
+        <button type="submit" disabled={busy || (method === 'gateway' && !gatewayReady)} className="btn-primary w-full !py-3">
+          {busy && <Loader2 className="animate-spin" size={18} />}
+          {method === 'gateway' ? (gatewayReady ? 'الانتقال إلى صفحة الدفع' : 'بوابة الدفع غير مفعّلة بعد') : 'إرسال الدفعة'}
+        </button>
+      </form>
+    </div>
+  )
+}
+
+function MethodBtn({ icon: Icon, label, v, cur, on }: any) {
+  const active = v === cur
+  return (
+    <button type="button" onClick={() => on(v)}
+      className={`card card-body !p-4 flex items-center gap-3 transition ${active ? 'ring-2 ring-gold-400 bg-brand-50/50' : 'hover:bg-brand-50/30'}`}>
+      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${active ? 'bg-brand-950 text-white' : 'bg-brand-100 text-brand-700'}`}>
+        <Icon size={20} />
+      </div>
+      <span className="font-semibold text-brand-950 text-sm">{label}</span>
+    </button>
+  )
+}
+
+function KV({ k, v, copyKey, copied, onCopy, mono }: any) {
+  return (
+    <div className="flex items-center justify-between py-2 border-b border-brand-100/60 last:border-0">
+      <span className="text-xs text-brand-600 font-semibold">{k}</span>
+      <div className="flex items-center gap-2">
+        <span className={`text-sm font-bold text-brand-950 ${mono ? 'font-mono' : ''}`}>{v || '—'}</span>
+        {copyKey && v && (
+          <button type="button" onClick={() => onCopy(v, copyKey)}
+            className="text-brand-500 hover:text-brand-700 p-1 rounded hover:bg-brand-100/60">
+            {copied === copyKey ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
