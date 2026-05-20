@@ -4,7 +4,8 @@ import { jsonOK } from '@/lib/auth'
 const PUBLIC_KEYS = [
   'fund_name', 'family_name', 'subscription_amount', 'subscription_period',
   'bank_name', 'bank_iban', 'bank_account_name', 'stc_pay_number',
-  'whatsapp_number', 'email', 'founded_year', 'about',
+  'whatsapp_number', 'phone', 'email', 'founded_year', 'about',
+  'license_number', 'license_date',
 ]
 
 export async function GET() {

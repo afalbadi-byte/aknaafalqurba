@@ -144,11 +144,19 @@ export default async function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-brand-950 text-brand-200 py-8 border-t border-brand-900">
-        <div className="container mx-auto px-4 sm:px-6 text-center">
-          <Logo className="justify-center mb-3" />
-          <div className="text-xs text-brand-400 mt-4">
-            © {new Date().getFullYear()} {settings.fund_name || 'صندوق أكناف القربى'} - {settings.family_name || 'عائلة البادي'}
+      <footer className="bg-brand-950 text-brand-200 py-10 border-t border-brand-900">
+        <div className="container mx-auto px-4 sm:px-6">
+          <div className="flex flex-col items-center gap-4">
+            <Logo size={56} className="justify-center" />
+            <div className="text-sm text-brand-300 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+              {settings.phone &&          <span dir="ltr">📞 {settings.phone}</span>}
+              {settings.email &&          <span>✉ {settings.email}</span>}
+              {settings.license_number && <span>رقم الترخيص: {settings.license_number}</span>}
+              {settings.license_date &&   <span>تاريخ الترخيص: {settings.license_date}</span>}
+            </div>
+            <div className="text-xs text-brand-500 mt-2">
+              © {new Date().getFullYear()} {settings.fund_name || 'صندوق أكناف القربى'} — {settings.family_name || 'عائلة البادي'}
+            </div>
           </div>
         </div>
       </footer>

@@ -189,20 +189,23 @@ CREATE TABLE settings (
   key_value TEXT
 );
 
--- بيانات افتراضية
+-- بيانات افتراضية (مأخوذة من الكليشة الرسمية)
 INSERT INTO settings (key_name, key_value) VALUES
-  ('fund_name', 'صندوق أكناف القربى'),
-  ('family_name', 'عائلة البادي'),
-  ('subscription_amount', '100'),
-  ('subscription_period', 'monthly'),
-  ('bank_name', 'البنك الأهلي السعودي'),
-  ('bank_iban', 'SA0000000000000000000000'),
-  ('bank_account_name', 'صندوق أكناف القربى - عائلة البادي'),
-  ('stc_pay_number', '05XXXXXXXX'),
-  ('whatsapp_number', '05XXXXXXXX'),
-  ('email', 'info@example.com'),
-  ('founded_year', '2024'),
-  ('about', 'صندوق عائلي يهدف إلى تعزيز روابط القربى وتقديم الدعم المالي والاجتماعي لأبناء عائلة البادي.');
+  ('fund_name',          'صندوق أكناف القربى'),
+  ('family_name',        'عائلة البادي'),
+  ('subscription_amount','100'),
+  ('subscription_period','monthly'),
+  ('bank_name',          'البنك الأهلي السعودي'),
+  ('bank_iban',          'SA0000000000000000000000'),
+  ('bank_account_name',  'صندوق أكناف القربى - عائلة البادي'),
+  ('stc_pay_number',     '0539669988'),
+  ('whatsapp_number',    '0539669988'),
+  ('phone',              '0539669988'),
+  ('email',              'info@aknafalqurba.com'),
+  ('license_number',     '1200775200'),
+  ('license_date',       '1447/07/11هـ'),
+  ('founded_year',       '2025'),
+  ('about',              'صندوق عائلي يهدف إلى تعزيز روابط القربى وتقديم الدعم المالي والاجتماعي لأبناء عائلة البادي.');
 
 -- ملاحظة: لإنشاء حساب المدير الأول، افتح بعد الـ deploy:
 --   https://yourapp.vercel.app/setup

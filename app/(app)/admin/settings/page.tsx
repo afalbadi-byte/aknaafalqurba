@@ -33,7 +33,15 @@ const GROUPS = [
     fields: [
       { k: 'stc_pay_number',  l: 'رقم STC Pay' },
       { k: 'whatsapp_number', l: 'رقم واتساب الصندوق' },
+      { k: 'phone',           l: 'رقم الجوال للتواصل' },
       { k: 'email',           l: 'البريد الإلكتروني' },
+    ],
+  },
+  {
+    title: 'الترخيص الرسمي',
+    fields: [
+      { k: 'license_number', l: 'رقم الترخيص' },
+      { k: 'license_date',   l: 'تاريخ الترخيص' },
     ],
   },
 ]

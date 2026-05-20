@@ -46,16 +46,16 @@
     @apply absolute -top-8 -left-8 w-24 h-24 rounded-full bg-brand-500/5;
   }
 
-  .with-watermark { position: relative; }
+  .with-watermark { position: relative; overflow: hidden; }
   .with-watermark::before {
     content: '';
     position: absolute;
     inset: 0;
-    background-image: url('/brand/watermark.svg');
+    background-image: url('/brand/emblem.png');
     background-repeat: no-repeat;
     background-position: center;
-    background-size: 60% auto;
-    opacity: 0.04;
+    background-size: 50% auto;
+    opacity: 0.05;
     pointer-events: none;
     z-index: 0;
   }
@@ -65,12 +65,14 @@
 @media print {
   body { background: white; }
   .no-print { display: none !important; }
+  /* Print letterhead: use the official A4 letterhead PNG as a full-page background */
   .print-letterhead {
-    background-image: url('/brand/letterhead.svg');
+    background-image: url('/brand/letterhead.png');
     background-size: 100% auto;
     background-repeat: no-repeat;
     background-position: top center;
     padding-top: 180px;
-    padding-bottom: 120px;
+    padding-bottom: 160px;
+    min-height: 297mm;
   }
 }
