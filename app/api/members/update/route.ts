@@ -2,7 +2,9 @@ import { NextRequest } from 'next/server'
 import { sql } from '@/lib/db'
 import { requireUser, isAdmin, jsonOK, jsonError, parseJson } from '@/lib/auth'
 
-const FIELDS = ['full_name', 'national_id', 'phone', 'email', 'branch', 'birth_year', 'city', 'address', 'notes'] as const
+// Email is intentionally excluded — it must go through the verified flow
+// at /api/members/email-change → /api/members/email-confirm
+const FIELDS = ['full_name', 'national_id', 'phone', 'branch', 'birth_year', 'city', 'address', 'notes'] as const
 
 export async function POST(req: NextRequest) {
   const { user, error } = await requireUser()

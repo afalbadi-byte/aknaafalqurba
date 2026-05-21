@@ -31,6 +31,10 @@ export const api = {
     me:              ()             => get('/api/auth/me'),
     changePassword:  (cur: string, n: string) =>
       post('/api/auth/change-password', { current_password: cur, new_password: n }),
+    verifyEmail:     (member_id: number, code: string) =>
+      post('/api/auth/verify-email', { member_id, code }),
+    resendVerification: (member_id: number) =>
+      post('/api/auth/resend-verification', { member_id }),
   },
   members: {
     list:         (status?: string) => get(`/api/members${status ? `?status=${status}` : ''}`),
@@ -43,6 +47,8 @@ export const api = {
     dependents:   (memberId?: number) => get(`/api/members/dependents${memberId ? `?member_id=${memberId}` : ''}`),
     addDependent: (d: any)          => post('/api/members/dependents', d),
     delDependent: (id: number)      => del(`/api/members/dependents/${id}`),
+    emailChange:  (email: string)   => post('/api/members/email-change', { email }),
+    emailConfirm: (code: string)    => post('/api/members/email-confirm', { code }),
   },
   payments: {
     create: (fd: FormData)          => post('/api/payments', fd),

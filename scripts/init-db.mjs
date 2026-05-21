@@ -33,17 +33,46 @@ if (!url) {
   process.exit(1)
 }
 
-const schemaPath = path.join(__dirname, '..', 'lib', 'schema.sql')
-const sql = fs.readFileSync(schemaPath, 'utf8')
-console.log(`Reading schema: ${schemaPath} (${sql.length} chars)`)
-
 const client = postgres(url, { ssl: 'require', max: 1, idle_timeout: 5 })
+
+async function apply(sqlText, label) {
+  try {
+    await client.unsafe(sqlText)
+    console.log(`✅ ${label} applied`)
+  } catch (e) {
+    // Re-runnable migrations: ignore "already exists" errors
+    if (/already exists|duplicate/i.test(e.message)) {
+      console.log(`↪︎ ${label} already applied (skipped)`)
+    } else {
+      throw e
+    }
+  }
+}
+
 try {
   console.log('Connecting…')
-  // Use unsafe so the whole script (multi-statement) runs as one batch
-  const result = await client.unsafe(sql)
-  console.log('✅ Schema applied successfully')
-  console.log('Result rows:', Array.isArray(result) ? result.length : 'n/a')
+
+  // Base schema (only runs cleanly on a fresh DB; harmless idempotent for migrations)
+  const schemaPath = path.join(__dirname, '..', 'lib', 'schema.sql')
+  if (fs.existsSync(schemaPath)) {
+    const baseExists = await client`SELECT to_regclass('public.members') AS t`
+    if (!baseExists[0].t) {
+      await apply(fs.readFileSync(schemaPath, 'utf8'), 'schema.sql')
+    } else {
+      console.log('↪︎ base schema already exists, skipping schema.sql')
+    }
+  }
+
+  // Sequential migrations from lib/migrations/*.sql
+  const migDir = path.join(__dirname, '..', 'lib', 'migrations')
+  if (fs.existsSync(migDir)) {
+    const files = fs.readdirSync(migDir).filter(f => f.endsWith('.sql')).sort()
+    for (const f of files) {
+      await apply(fs.readFileSync(path.join(migDir, f), 'utf8'), `migration ${f}`)
+    }
+  }
+
+  console.log('🎉 All done')
 } catch (e) {
   console.error('❌ Failed:', e.message)
   process.exit(1)

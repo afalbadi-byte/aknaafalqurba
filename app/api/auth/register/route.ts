@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { sql } from '@/lib/db'
 import { hashPassword, jsonOK, jsonError, parseJson, requireFields } from '@/lib/auth'
 import { notifyCommittee } from '@/lib/notify'
+import { startVerification } from '@/lib/verification'
 
 export async function POST(req: NextRequest) {
   const body = await parseJson(req)
@@ -41,8 +42,22 @@ export async function POST(req: NextRequest) {
   await notifyCommittee('new_member', 'طلب عضوية جديد',
     `${body.full_name} يطلب الانضمام للصندوق`, `/admin/members?id=${ins.id}`)
 
+  // If the user supplied an email, fire a 6-digit verification code to it
+  let email_pending = false
+  if (body.email) {
+    try {
+      await startVerification(ins.id, body.email, 'register')
+      email_pending = true
+    } catch (e) {
+      console.error('[register] verification email failed:', (e as Error).message)
+    }
+  }
+
   return jsonOK({
     member_id: ins.id,
-    message: 'تم استلام طلبك. سيتم تفعيل الحساب بعد مراجعة لجنة الصندوق.',
+    email_pending,
+    message: email_pending
+      ? 'تم استلام طلبك وأرسلنا رمز تأكيد إلى بريدك. سيتم تفعيل الحساب بعد مراجعة اللجنة.'
+      : 'تم استلام طلبك. سيتم تفعيل الحساب بعد مراجعة لجنة الصندوق.',
   })
 }

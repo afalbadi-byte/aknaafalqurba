@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api-client'
 import { ROLE_LABELS, RELATION_LABELS } from '@/lib/utils'
-import { Save, Lock, UserPlus, Trash2, Loader2 } from 'lucide-react'
+import { Save, Lock, UserPlus, Trash2, Loader2, Mail, ShieldCheck, CheckCircle2 } from 'lucide-react'
 
 export default function Profile() {
   const [user, setUser] = useState<any>(null)
@@ -27,14 +27,46 @@ export default function Profile() {
   async function saveInfo(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setMsg(null)
     try {
+      // NOTE: email is intentionally omitted — it has its own verified flow
       await api.members.update({
-        full_name: form.full_name, phone: form.phone, email: form.email,
+        full_name: form.full_name, phone: form.phone,
         branch: form.branch, city: form.city, address: form.address,
         national_id: form.national_id, birth_year: form.birth_year,
       })
       setMsg({ ok: true, text: 'تم حفظ التعديلات' })
     } catch (err: any) { setMsg({ ok: false, text: err.message }) }
     finally { setBusy(false) }
+  }
+
+  // ----- Email change flow (sends code → enter code → applied) -----
+  const [emailNew,    setEmailNew]    = useState('')
+  const [emailStep,   setEmailStep]   = useState<'idle' | 'code'>('idle')
+  const [emailCode,   setEmailCode]   = useState('')
+  const [emailPending, setEmailPending] = useState('')
+  const [emailBusy,   setEmailBusy]   = useState(false)
+  const [emailMsg,    setEmailMsg]    = useState<any>(null)
+
+  async function requestEmailChange(e: React.FormEvent) {
+    e.preventDefault(); setEmailBusy(true); setEmailMsg(null)
+    try {
+      const r = await api.members.emailChange(emailNew.trim())
+      setEmailPending(r.pending_email || emailNew.trim())
+      setEmailStep('code')
+      setEmailMsg({ ok: true, text: 'تم إرسال رمز التأكيد للبريد الجديد' })
+    } catch (err: any) { setEmailMsg({ ok: false, text: err.message }) }
+    finally { setEmailBusy(false) }
+  }
+
+  async function confirmEmailChange(e: React.FormEvent) {
+    e.preventDefault(); setEmailBusy(true); setEmailMsg(null)
+    try {
+      const r = await api.members.emailConfirm(emailCode.trim())
+      setEmailMsg({ ok: true, text: 'تم تحديث بريدك بنجاح' })
+      setUser((u: any) => ({ ...u, email: r.email, email_verified: true }))
+      setForm((f: any) => ({ ...f, email: r.email }))
+      setEmailStep('idle'); setEmailNew(''); setEmailCode(''); setEmailPending('')
+    } catch (err: any) { setEmailMsg({ ok: false, text: err.message }) }
+    finally { setEmailBusy(false) }
   }
 
   async function addDep(e: React.FormEvent) {
@@ -73,7 +105,18 @@ export default function Profile() {
           <form onSubmit={saveInfo} className="p-6 grid sm:grid-cols-2 gap-4">
             <F label="الاسم الكامل"     v={form.full_name}   on={(v: string) => set('full_name', v)} />
             <F label="رقم الجوال"       v={form.phone}        on={(v: string) => set('phone', v)} />
-            <F label="البريد"            v={form.email ?? ''}  on={(v: string) => set('email', v)} type="email" />
+            <div>
+              <label className="label">البريد الإلكتروني</label>
+              <div className="input bg-brand-50/40 flex items-center justify-between gap-2 cursor-not-allowed">
+                <span className="text-brand-700 truncate">{user.email || '— غير مسجل —'}</span>
+                {user.email && (
+                  user.email_verified
+                    ? <span className="badge badge-approved text-[10px] shrink-0"><CheckCircle2 size={10}/> مؤكد</span>
+                    : <span className="badge badge-pending text-[10px] shrink-0">غير مؤكد</span>
+                )}
+              </div>
+              <p className="text-[11px] text-brand-500 mt-1">لتغيير البريد، استخدم البطاقة على اليسار</p>
+            </div>
             <F label="رقم الهوية"        v={form.national_id ?? ''} on={(v: string) => set('national_id', v)} />
             <F label="الفرع/البطن"       v={form.branch ?? ''} on={(v: string) => set('branch', v)} />
             <F label="المدينة"           v={form.city ?? ''}   on={(v: string) => set('city', v)} />
@@ -102,6 +145,67 @@ export default function Profile() {
               <div className="font-bold text-brand-950">{user.full_name}</div>
               <div className="text-sm text-brand-500 mb-3">{ROLE_LABELS[user.role]}</div>
               <span className="badge badge-approved">الحساب مفعّل</span>
+            </div>
+          </div>
+
+          {/* ---- Email change with verification code ---- */}
+          <div className="card">
+            <div className="px-5 py-4 border-b border-brand-100">
+              <h3 className="font-bold text-brand-950 flex items-center gap-2"><Mail size={18} /> تغيير البريد الإلكتروني</h3>
+            </div>
+            <div className="p-5 space-y-3">
+              {emailStep === 'idle' && (
+                <form onSubmit={requestEmailChange} className="space-y-3">
+                  <input
+                    className="input"
+                    type="email"
+                    placeholder="البريد الإلكتروني الجديد"
+                    value={emailNew}
+                    onChange={e => setEmailNew(e.target.value)}
+                    required
+                  />
+                  <p className="text-[11px] text-brand-500">
+                    سنرسل رمز تأكيد مكوّن من ٦ أرقام إلى البريد الجديد قبل تطبيق التغيير.
+                  </p>
+                  {emailMsg && (
+                    <div className={`text-xs rounded px-3 py-2 ${emailMsg.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>{emailMsg.text}</div>
+                  )}
+                  <button className="btn-primary w-full" type="submit" disabled={emailBusy || !emailNew}>
+                    {emailBusy && <Loader2 className="animate-spin" size={14} />}
+                    إرسال رمز التأكيد
+                  </button>
+                </form>
+              )}
+              {emailStep === 'code' && (
+                <form onSubmit={confirmEmailChange} className="space-y-3">
+                  <div className="text-xs text-brand-600 bg-brand-50/60 rounded px-3 py-2">
+                    <ShieldCheck size={14} className="inline ml-1" />
+                    أرسلنا الرمز إلى <strong>{emailPending}</strong>
+                  </div>
+                  <input
+                    className="input text-center text-2xl font-bold tracking-widest font-mono"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="• • • • • •"
+                    value={emailCode}
+                    onChange={e => setEmailCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    required
+                  />
+                  {emailMsg && (
+                    <div className={`text-xs rounded px-3 py-2 ${emailMsg.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>{emailMsg.text}</div>
+                  )}
+                  <div className="flex gap-2">
+                    <button className="btn-secondary flex-1" type="button" onClick={() => { setEmailStep('idle'); setEmailMsg(null) }}>
+                      إلغاء
+                    </button>
+                    <button className="btn-primary flex-1" type="submit" disabled={emailBusy || emailCode.length !== 6}>
+                      {emailBusy && <Loader2 className="animate-spin" size={14} />}
+                      تأكيد
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           </div>
 

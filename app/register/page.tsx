@@ -1,11 +1,13 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { UserPlus, Loader2, CheckCircle2 } from 'lucide-react'
 import { api } from '@/lib/api-client'
 import Logo from '@/components/logo'
 
 export default function Register() {
+  const router = useRouter()
   const [form, setForm] = useState({
     full_name: '', phone: '', email: '', branch: '', city: '',
     birth_year: '', password: '', confirm: '',
@@ -22,7 +24,12 @@ export default function Register() {
     setBusy(true)
     try {
       const { confirm, ...payload } = form
-      await api.auth.register(payload)
+      const r = await api.auth.register(payload)
+      // If we sent a verification code, route the user to the code entry page
+      if (r.email_pending && r.member_id) {
+        router.push(`/verify-email?m=${r.member_id}`)
+        return
+      }
       setDone(true)
     } catch (err: any) { setError(err.message) }
     finally { setBusy(false) }

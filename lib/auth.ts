@@ -12,6 +12,7 @@ export type Member = {
   full_name: string
   phone: string
   email: string | null
+  email_verified: boolean
   branch: string | null
   birth_year: number | null
   city: string | null
@@ -64,8 +65,9 @@ export async function currentUser(): Promise<Member | null> {
   const token = jar.get(COOKIE)?.value
   if (!token) return null
   const rows = await sql<Member[]>`
-    SELECT m.id, m.full_name, m.phone, m.email, m.branch, m.birth_year, m.city,
-           m.address, m.national_id, m.role, m.status, m.avatar, m.notes, m.created_at
+    SELECT m.id, m.full_name, m.phone, m.email, m.email_verified, m.branch,
+           m.birth_year, m.city, m.address, m.national_id, m.role, m.status,
+           m.avatar, m.notes, m.created_at
     FROM sessions s
     JOIN members  m ON m.id = s.member_id
     WHERE s.token = ${token}
