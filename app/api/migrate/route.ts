@@ -46,6 +46,12 @@ const MIGRATIONS: { name: string; up: string }[] = [
         WHERE birth_year IS NOT NULL AND birth_date IS NULL;
     `,
   },
+  {
+    name: '004-avatar-text',
+    up: `
+      ALTER TABLE members ALTER COLUMN avatar TYPE TEXT;
+    `,
+  },
 ]
 
 export async function GET() {
@@ -61,6 +67,14 @@ export async function GET() {
         if (m.name.startsWith('003')) {
           await sql`SELECT theme FROM members LIMIT 0`
           return { name: m.name, status: 'applied' }
+        }
+        if (m.name.startsWith('004')) {
+          // Check if avatar column is TEXT (not VARCHAR)
+          const [col] = await sql`
+            SELECT data_type FROM information_schema.columns
+            WHERE table_name = 'members' AND column_name = 'avatar'
+          `
+          return { name: m.name, status: col?.data_type === 'text' ? 'applied' : 'pending' }
         }
         return { name: m.name, status: 'unknown' }
       } catch {

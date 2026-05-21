@@ -1,18 +1,30 @@
 import { NextRequest } from 'next/server'
 import { sql } from '@/lib/db'
 import { requireUser, jsonOK, jsonError } from '@/lib/auth'
-import { saveUpload } from '@/lib/storage'
+
+// Max size for base64-encoded avatar stored in DB (~150 KB → ~200 KB base64)
+const MAX_BYTES = 150 * 1024
 
 export async function POST(req: NextRequest) {
   const { user, error } = await requireUser()
   if (error) return error
+
   const fd = await req.formData()
-  let url: string | null = null
-  try { url = await saveUpload(fd.get('avatar') as File | null, 'avatars') }
-  catch (e: any) { return jsonError('upload_error', e.message, 400) }
-  if (!url) return jsonError('missing', 'لم يتم اختيار صورة', 400)
-  await sql`UPDATE members SET avatar = ${url}, updated_at = NOW() WHERE id = ${user.id}`
-  return jsonOK({ avatar: url })
+  const file = fd.get('avatar') as File | null
+  if (!file || file.size === 0) return jsonError('missing', 'لم يتم اختيار صورة', 400)
+
+  const ext = (file.name.split('.').pop() || '').toLowerCase()
+  if (!['jpg', 'jpeg', 'png', 'webp'].includes(ext))
+    return jsonError('bad_type', 'صيغة غير مدعومة — jpg/png/webp فقط', 400)
+
+  if (file.size > MAX_BYTES)
+    return jsonError('too_large', 'الصورة كبيرة جداً — الحد ١٥٠KB (سيتم ضغطها تلقائياً)', 400)
+
+  const buf = await file.arrayBuffer()
+  const dataUrl = `data:${file.type};base64,${Buffer.from(buf).toString('base64')}`
+
+  await sql`UPDATE members SET avatar = ${dataUrl}, updated_at = NOW() WHERE id = ${user.id}`
+  return jsonOK({ avatar: dataUrl })
 }
 
 export async function DELETE() {

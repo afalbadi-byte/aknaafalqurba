@@ -22,7 +22,7 @@ export async function startVerification(
   member_id: number,
   email: string,
   purpose: 'register' | 'change' = 'register',
-): Promise<{ ok: boolean; cooldown_seconds?: number }> {
+): Promise<{ ok: boolean; email_sent?: boolean; cooldown_seconds?: number }> {
   // Cool-down: don't allow spamming
   const [last] = await sql<{ created_at: string }[]>`
     SELECT created_at FROM email_verifications
@@ -77,8 +77,8 @@ export async function startVerification(
     </p>
   `
 
-  await sendEmail({ to: email, subject, body: html, preheader: `رمز التأكيد: ${code}` })
-  return { ok: true }
+  const email_sent = await sendEmail({ to: email, subject, body: html, preheader: `رمز التأكيد: ${code}` })
+  return { ok: true, email_sent }
 }
 
 /**
