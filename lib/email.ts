@@ -10,20 +10,25 @@ function transporter(): Transporter | null {
   if (cached) return cached
   const host = process.env.SMTP_HOST
   if (!host) return null
+  const port   = Number(process.env.SMTP_PORT || 465)
+  // port 465 = SSL (secure:true), port 587 = STARTTLS (secure:false)
+  const secure = port === 465 ? true : process.env.SMTP_SECURE !== 'false'
   cached = nodemailer.createTransport({
     host,
-    port: Number(process.env.SMTP_PORT || 465),
-    secure: process.env.SMTP_SECURE !== 'false',   // default true (port 465)
+    port,
+    secure,
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     },
+    tls: { rejectUnauthorized: false },  // avoid self-signed cert issues
   })
   return cached
 }
 
+// Use plain ASCII display name to avoid SMTP header encoding issues
 const FROM = process.env.SMTP_FROM
-  || (process.env.SMTP_USER ? `صندوق أكناف القربى <${process.env.SMTP_USER}>` : null)
+  || (process.env.SMTP_USER ? `Akhnaf AlQurba <${process.env.SMTP_USER}>` : null)
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://aknafalqurba.com'
 
@@ -50,6 +55,7 @@ export async function sendEmail({ to, subject, body, cta, preheader }: EmailOpti
     return true
   } catch (e) {
     console.error('[email] sendMail failed:', (e as Error).message)
+    console.error('[email] config → host:', process.env.SMTP_HOST, 'port:', process.env.SMTP_PORT, 'user:', process.env.SMTP_USER, 'from:', FROM)
     return false
   }
 }
