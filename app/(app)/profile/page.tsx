@@ -77,6 +77,33 @@ export default function Profile() {
     finally { setAvatarBusy(false) }
   }
 
+  // ----- Email verification flow (existing unverified email) -----
+  const [verStep, setVerStep] = useState<'idle' | 'code'>('idle')
+  const [verCode, setVerCode] = useState('')
+  const [verBusy, setVerBusy] = useState(false)
+  const [verMsg,  setVerMsg]  = useState<any>(null)
+
+  async function sendVerCode() {
+    setVerBusy(true); setVerMsg(null)
+    try {
+      await api.auth.resendVerification(user.id)
+      setVerStep('code')
+      setVerMsg({ ok: true, text: 'تم إرسال الرمز إلى بريدك' })
+    } catch (err: any) { setVerMsg({ ok: false, text: err.message }) }
+    finally { setVerBusy(false) }
+  }
+
+  async function confirmVerCode(e: React.FormEvent) {
+    e.preventDefault(); setVerBusy(true); setVerMsg(null)
+    try {
+      await api.auth.verifyEmail(user.id, verCode)
+      setUser((u: any) => ({ ...u, email_verified: true }))
+      setVerMsg({ ok: true, text: '✅ تم تفعيل بريدك بنجاح!' })
+      setVerStep('idle'); setVerCode('')
+    } catch (err: any) { setVerMsg({ ok: false, text: err.message }) }
+    finally { setVerBusy(false) }
+  }
+
   // ----- Email change flow -----
   const [emailNew,     setEmailNew]     = useState('')
   const [emailStep,    setEmailStep]    = useState<'idle' | 'code'>('idle')
@@ -239,6 +266,70 @@ export default function Profile() {
               )}
             </div>
           </div>
+
+          {/* Email verification (only when unverified) */}
+          {user.email && !user.email_verified && (
+            <div className="card border-amber-300 dark:border-amber-600 overflow-hidden">
+              <div className="px-5 py-4 border-b border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20">
+                <h3 className="font-bold text-amber-800 dark:text-amber-300 flex items-center gap-2 text-sm">
+                  <ShieldCheck size={16} /> تفعيل البريد الإلكتروني
+                </h3>
+              </div>
+              <div className="p-5 space-y-3">
+                <p className="text-xs text-brand-600 dark:text-brand-400">
+                  بريدك <strong className="text-brand-800 dark:text-brand-200">{user.email}</strong> لم يُفعَّل بعد.
+                  فعّله لتستقبل الإشعارات ورموز التأكيد.
+                </p>
+                {verStep === 'idle' ? (
+                  <>
+                    {verMsg && (
+                      <div className={`text-xs rounded px-3 py-2 ${verMsg.ok ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'}`}>
+                        {verMsg.text}
+                      </div>
+                    )}
+                    <button className="btn-primary w-full" onClick={sendVerCode} disabled={verBusy}>
+                      {verBusy ? <Loader2 className="animate-spin" size={14} /> : <Mail size={14} />}
+                      إرسال رمز التفعيل
+                    </button>
+                  </>
+                ) : (
+                  <form onSubmit={confirmVerCode} className="space-y-3">
+                    <div className="text-xs bg-brand-50 dark:bg-brand-800/60 text-brand-600 dark:text-brand-400 rounded px-3 py-2">
+                      <ShieldCheck size={13} className="inline ml-1" />
+                      أرسلنا الرمز إلى <strong>{user.email}</strong>
+                    </div>
+                    <input
+                      className="input text-center text-2xl font-bold tracking-widest font-mono"
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="• • • • • •"
+                      value={verCode}
+                      onChange={e => setVerCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      autoFocus
+                      required
+                    />
+                    {verMsg && (
+                      <div className={`text-xs rounded px-3 py-2 ${verMsg.ok ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'}`}>
+                        {verMsg.text}
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <button type="button" className="btn-secondary flex-1"
+                        onClick={() => { setVerStep('idle'); setVerMsg(null); setVerCode('') }}>
+                        إلغاء
+                      </button>
+                      <button type="submit" className="btn-primary flex-1"
+                        disabled={verBusy || verCode.length !== 6}>
+                        {verBusy && <Loader2 className="animate-spin" size={14} />}
+                        تفعيل
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Email change */}
           <div className="card">

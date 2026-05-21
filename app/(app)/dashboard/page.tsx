@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { api } from '@/lib/api-client'
 import { formatMoney, formatDate, statusBadge, STATUS_LABELS, NEWS_CATEGORIES, PAYMENT_METHODS } from '@/lib/utils'
-import { Wallet, FileHeart, Newspaper, Bell, ChevronLeft, Plus, AlertCircle } from 'lucide-react'
+import { Wallet, FileHeart, Newspaper, Bell, ChevronLeft, Plus, AlertCircle, Mail, Loader2, ShieldCheck } from 'lucide-react'
 
 export default function Dashboard() {
   const [stats,  setStats]  = useState<any>(null)
@@ -11,12 +11,37 @@ export default function Dashboard() {
   const [recent, setRecent] = useState<any[]>([])
   const [user,   setUser]   = useState<any>(null)
 
+  // Email verification
+  const [verStep, setVerStep] = useState<'idle' | 'code'>('idle')
+  const [verCode, setVerCode] = useState('')
+  const [verBusy, setVerBusy] = useState(false)
+  const [verMsg,  setVerMsg]  = useState<any>(null)
+
   useEffect(() => {
     api.auth.me().then(r => setUser(r.user))
     api.reports.dashboard().then(setStats).catch(() => {})
     api.news.list().then(r => setNews(r.news.slice(0, 4))).catch(() => {})
     api.payments.mine().then(r => setRecent(r.payments.slice(0, 5))).catch(() => {})
   }, [])
+
+  async function sendVerCode() {
+    setVerBusy(true); setVerMsg(null)
+    try {
+      await api.auth.resendVerification(user.id)
+      setVerStep('code')
+    } catch (err: any) { setVerMsg({ ok: false, text: err.message }) }
+    finally { setVerBusy(false) }
+  }
+
+  async function confirmVerCode(e: React.FormEvent) {
+    e.preventDefault(); setVerBusy(true); setVerMsg(null)
+    try {
+      await api.auth.verifyEmail(user.id, verCode)
+      setUser((u: any) => ({ ...u, email_verified: true }))
+      setVerStep('idle'); setVerCode('')
+    } catch (err: any) { setVerMsg({ ok: false, text: err.message }) }
+    finally { setVerBusy(false) }
+  }
 
   if (!user) return <div className="text-center text-brand-500 py-12">جاري التحميل...</div>
 
@@ -34,6 +59,57 @@ export default function Dashboard() {
           <Link href="/payments/new" className="btn-gold !px-5"><Plus size={18} /> دفعة جديدة</Link>
         </div>
       </div>
+
+      {/* Email verification banner */}
+      {user.email && !user.email_verified && (
+        <div className="card border-amber-300 dark:border-amber-600 bg-amber-50/60 dark:bg-amber-900/10 overflow-hidden">
+          <div className="px-6 py-4 flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                <Mail size={20} />
+              </div>
+              <div className="min-w-0">
+                <div className="font-bold text-amber-800 dark:text-amber-300 text-sm">بريدك الإلكتروني غير مفعّل</div>
+                <div className="text-xs text-amber-700/80 dark:text-amber-400/80 truncate">{user.email}</div>
+              </div>
+            </div>
+            {verStep === 'idle' ? (
+              <button onClick={sendVerCode} disabled={verBusy}
+                className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-400 text-white font-bold text-sm transition">
+                {verBusy ? <Loader2 className="animate-spin" size={14}/> : <Mail size={14}/>}
+                إرسال رمز التفعيل
+              </button>
+            ) : (
+              <form onSubmit={confirmVerCode} className="flex items-center gap-2 flex-wrap">
+                <div className="text-xs text-amber-700 dark:text-amber-400 flex items-center gap-1 shrink-0">
+                  <ShieldCheck size={13}/> أرسلنا الرمز إلى بريدك
+                </div>
+                <input
+                  className="input w-36 text-center font-mono font-bold tracking-widest text-lg"
+                  type="text" inputMode="numeric" maxLength={6}
+                  placeholder="• • • • • •"
+                  value={verCode}
+                  onChange={e => setVerCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  autoFocus
+                />
+                <button type="submit" disabled={verBusy || verCode.length !== 6}
+                  className="btn-primary !py-2">
+                  {verBusy && <Loader2 className="animate-spin" size={14}/>} تفعيل
+                </button>
+                <button type="button" className="btn-secondary !py-2"
+                  onClick={() => { setVerStep('idle'); setVerCode(''); setVerMsg(null) }}>
+                  إلغاء
+                </button>
+              </form>
+            )}
+          </div>
+          {verMsg && (
+            <div className={`px-6 pb-4 text-sm font-semibold ${verMsg.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+              {verMsg.text}
+            </div>
+          )}
+        </div>
+      )}
 
       {stats?.personal && (
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
