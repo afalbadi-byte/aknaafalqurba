@@ -147,7 +147,7 @@ export default async function LandingPage() {
       <footer className="bg-brand-950 text-brand-200 py-10 border-t border-brand-900">
         <div className="container mx-auto px-4 sm:px-6">
           <div className="flex flex-col items-center gap-4">
-            <Logo size={56} className="justify-center" />
+            <Logo size={64} variant="white" className="justify-center" />
             <div className="text-sm text-brand-300 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
               {settings.phone &&          <span dir="ltr">📞 {settings.phone}</span>}
               {settings.email &&          <span>✉ {settings.email}</span>}
