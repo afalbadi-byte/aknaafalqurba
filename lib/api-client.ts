@@ -49,6 +49,9 @@ export const api = {
     delDependent: (id: number)      => del(`/api/members/dependents/${id}`),
     emailChange:  (email: string)   => post('/api/members/email-change', { email }),
     emailConfirm: (code: string)    => post('/api/members/email-confirm', { code }),
+    setTheme:     (theme: string)   => post('/api/members/theme', { theme }),
+    avatarUpload: (fd: FormData)    => post('/api/members/avatar', fd),
+    avatarRemove: ()                => del('/api/members/avatar'),
   },
   payments: {
     create: (fd: FormData)          => post('/api/payments', fd),

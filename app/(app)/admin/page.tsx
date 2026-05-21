@@ -46,19 +46,19 @@ export default function AdminHome() {
 
 function Stat({ icon: Icon, label, value, sub, color }: any) {
   const palette: Record<string, string> = {
-    emerald: 'bg-emerald-100 text-emerald-700',
-    brand:   'bg-brand-100 text-brand-700',
-    red:     'bg-red-100 text-red-700',
-    gold:    'bg-gold-100 text-gold-700',
+    emerald: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400',
+    brand:   'bg-brand-100 text-brand-700 dark:bg-brand-800 dark:text-brand-300',
+    red:     'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400',
+    gold:    'bg-gold-100 text-gold-700 dark:bg-gold-900/40 dark:text-gold-400',
   }
   return (
     <div className="stat-card">
       <div className={`w-12 h-12 rounded-xl ${palette[color]} flex items-center justify-center mb-3`}>
         <Icon size={22} />
       </div>
-      <div className="text-sm text-brand-500 font-semibold">{label}</div>
-      <div className="text-2xl font-bold text-brand-950 mt-1">{value}</div>
-      {sub && <div className="text-xs text-brand-500 mt-1">{sub}</div>}
+      <div className="text-sm text-brand-500 dark:text-brand-400 font-semibold">{label}</div>
+      <div className="text-2xl font-bold text-brand-950 dark:text-brand-50 mt-1">{value}</div>
+      {sub && <div className="text-xs text-brand-500 dark:text-brand-400 mt-1">{sub}</div>}
     </div>
   )
 }
@@ -85,10 +85,10 @@ function Action({ to, icon: Icon, count, label, color }: any) {
 function Quick({ to, icon: Icon, label }: any) {
   return (
     <Link href={to} className="card card-body hover:shadow-lg transition flex items-center gap-3">
-      <div className="w-10 h-10 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center">
+      <div className="w-10 h-10 rounded-lg bg-brand-100 dark:bg-brand-800 text-brand-700 dark:text-brand-300 flex items-center justify-center">
         <Icon size={20} />
       </div>
-      <span className="font-semibold text-brand-800">{label}</span>
+      <span className="font-semibold text-brand-800 dark:text-brand-200">{label}</span>
     </Link>
   )
 }

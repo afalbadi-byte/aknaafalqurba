@@ -8,9 +8,10 @@ export async function POST(req: NextRequest) {
   if (err) return err
 
   const ident = String(body.identifier).trim()
+  // Look up by phone, email, OR the ID document field — whichever the user typed
   const rows  = await sql`
     SELECT * FROM members
-    WHERE phone = ${ident} OR email = ${ident}
+    WHERE phone = ${ident} OR email = ${ident} OR national_id = ${ident}
     LIMIT 1
   `
   const m = rows[0]

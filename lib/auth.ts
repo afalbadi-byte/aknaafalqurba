@@ -15,12 +15,14 @@ export type Member = {
   email_verified: boolean
   branch: string | null
   birth_year: number | null
+  birth_date: string | null
   city: string | null
   address: string | null
   national_id: string | null
+  avatar: string | null
+  theme: 'light' | 'dark' | 'system'
   role: 'member' | 'aid_committee' | 'treasurer' | 'president' | 'admin'
   status: 'pending' | 'active' | 'suspended'
-  avatar: string | null
   notes: string | null
   created_at: string
 }
@@ -66,8 +68,8 @@ export async function currentUser(): Promise<Member | null> {
   if (!token) return null
   const rows = await sql<Member[]>`
     SELECT m.id, m.full_name, m.phone, m.email, m.email_verified, m.branch,
-           m.birth_year, m.city, m.address, m.national_id, m.role, m.status,
-           m.avatar, m.notes, m.created_at
+           m.birth_year, m.birth_date, m.city, m.address, m.national_id,
+           m.role, m.status, m.avatar, m.theme, m.notes, m.created_at
     FROM sessions s
     JOIN members  m ON m.id = s.member_id
     WHERE s.token = ${token}

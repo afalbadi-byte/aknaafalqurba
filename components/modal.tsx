@@ -23,10 +23,10 @@ export default function Modal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-brand-950/50 backdrop-blur-sm" onClick={onClose} />
-      <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${sizes[size]} max-h-[90vh] flex flex-col`}>
-        <div className="px-5 py-4 border-b border-brand-100 flex items-center justify-between">
-          <h3 className="font-bold text-brand-950">{title}</h3>
-          <button onClick={onClose} className="p-1.5 hover:bg-brand-50 rounded-lg text-brand-700">
+      <div className={`relative bg-white dark:bg-brand-900 rounded-2xl shadow-2xl dark:shadow-brand-950 w-full ${sizes[size]} max-h-[90vh] flex flex-col border border-brand-100/60 dark:border-brand-700`}>
+        <div className="px-5 py-4 border-b border-brand-100 dark:border-brand-700 flex items-center justify-between">
+          <h3 className="font-bold text-brand-950 dark:text-brand-50">{title}</h3>
+          <button onClick={onClose} className="p-1.5 hover:bg-brand-50 dark:hover:bg-brand-800 rounded-lg text-brand-700 dark:text-brand-300">
             <X size={20} />
           </button>
         </div>

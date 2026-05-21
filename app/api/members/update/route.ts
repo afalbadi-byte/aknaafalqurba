@@ -4,7 +4,7 @@ import { requireUser, isAdmin, jsonOK, jsonError, parseJson } from '@/lib/auth'
 
 // Email is intentionally excluded — it must go through the verified flow
 // at /api/members/email-change → /api/members/email-confirm
-const FIELDS = ['full_name', 'national_id', 'phone', 'branch', 'birth_year', 'city', 'address', 'notes'] as const
+const FIELDS = ['full_name', 'national_id', 'phone', 'branch', 'birth_year', 'birth_date', 'city', 'address', 'notes'] as const
 
 export async function POST(req: NextRequest) {
   const { user, error } = await requireUser()

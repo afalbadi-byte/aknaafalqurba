@@ -17,25 +17,46 @@ CREATE TYPE relation_type AS ENUM ('spouse','son','daughter','father','mother','
 --  الأعضاء (المستخدمون)
 -- ----------------------------
 CREATE TABLE members (
-  id            SERIAL PRIMARY KEY,
-  full_name     VARCHAR(150) NOT NULL,
-  national_id   VARCHAR(20),
-  phone         VARCHAR(20)  NOT NULL UNIQUE,
-  email         VARCHAR(150) UNIQUE,
-  branch        VARCHAR(100),
-  birth_year    SMALLINT,
-  city          VARCHAR(80),
-  address       VARCHAR(255),
-  password_hash VARCHAR(255) NOT NULL,
-  role          member_role   NOT NULL DEFAULT 'member',
-  status        member_status NOT NULL DEFAULT 'pending',
-  avatar        VARCHAR(255),
-  notes         TEXT,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id             SERIAL PRIMARY KEY,
+  full_name      VARCHAR(150) NOT NULL,
+  national_id    VARCHAR(20),
+  phone          VARCHAR(20)  NOT NULL UNIQUE,
+  email          VARCHAR(150) UNIQUE,
+  email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+  branch         VARCHAR(100),
+  birth_year     SMALLINT,
+  birth_date     DATE,
+  city           VARCHAR(80),
+  address        VARCHAR(255),
+  password_hash  VARCHAR(255) NOT NULL,
+  role           member_role   NOT NULL DEFAULT 'member',
+  status         member_status NOT NULL DEFAULT 'pending',
+  theme          VARCHAR(10)  NOT NULL DEFAULT 'system',
+  avatar         VARCHAR(255),
+  notes          TEXT,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX idx_members_status ON members(status);
 CREATE INDEX idx_members_role   ON members(role);
+CREATE INDEX idx_members_natid  ON members(national_id) WHERE national_id IS NOT NULL;
+
+-- ----------------------------
+--  تأكيد البريد الإلكتروني
+-- ----------------------------
+CREATE TABLE IF NOT EXISTS email_verifications (
+  id          SERIAL PRIMARY KEY,
+  member_id   INT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+  email       VARCHAR(150) NOT NULL,
+  code_hash   VARCHAR(120) NOT NULL,
+  purpose     VARCHAR(30)  NOT NULL DEFAULT 'register',
+  attempts    SMALLINT     NOT NULL DEFAULT 0,
+  expires_at  TIMESTAMPTZ  NOT NULL,
+  used_at     TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+CREATE INDEX idx_email_ver_member ON email_verifications(member_id);
+CREATE INDEX idx_email_ver_active ON email_verifications(member_id, used_at, expires_at);
 
 -- ----------------------------
 --  أفراد عائلة العضو
