@@ -51,11 +51,11 @@
     content: '';
     position: absolute;
     inset: 0;
-    background-image: url('/brand/emblem.png');
+    background-image: url('/brand/watermark.png');
     background-repeat: no-repeat;
     background-position: center;
-    background-size: 50% auto;
-    opacity: 0.05;
+    background-size: 55% auto;
+    opacity: 0.08;
     pointer-events: none;
     z-index: 0;
   }
