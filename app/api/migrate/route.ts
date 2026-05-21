@@ -91,21 +91,21 @@ export async function POST(req: NextRequest) {
 
   for (const m of MIGRATIONS) {
     try {
-      // Run each statement in the migration individually (neon/postgres doesn't support
-      // multiple statements in a single tagged-template call)
-      const stmts = m.up.split(';').map(s => s.trim()).filter(Boolean)
-      for (const stmt of stmts) {
-        await sql.unsafe(stmt)
-      }
+      /**
+       * postgres.js extended-query protocol (the default) does NOT support
+       * multiple commands in one call — that triggers:
+       *   "cannot insert multiple commands into a prepared statement"
+       *
+       * Fix: pass { simple: true } to force the simple-query wire protocol,
+       * which PostgreSQL DOES support for multi-statement strings.
+       * All our migration SQL uses IF NOT EXISTS so it's fully idempotent.
+       */
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (sql as any).unsafe(m.up, [], { simple: true })
       applied.push(m.name)
     } catch (e: any) {
-      // "already exists" / "already has column" errors are safe to skip
       const msg = String(e?.message || e)
-      if (
-        msg.includes('already exists') ||
-        msg.includes('duplicate column') ||
-        msg.includes('relation') && msg.includes('already exists')
-      ) {
+      if (msg.includes('already exists') || msg.includes('duplicate column')) {
         skipped.push(m.name)
       } else {
         errors.push({ name: m.name, error: msg })
@@ -113,8 +113,10 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const appliedUniq = applied
+
   if (errors.length) {
-    return jsonError('migration_error', 'بعض المهاجرات فشلت', 500, { applied, skipped, errors })
+    return jsonError('migration_error', 'بعض المهاجرات فشلت', 500, { applied: appliedUniq, skipped, errors })
   }
-  return jsonOK({ message: 'تم تطبيق المهاجرات بنجاح', applied, skipped })
+  return jsonOK({ message: 'تم تطبيق المهاجرات بنجاح', applied: appliedUniq, skipped })
 }
