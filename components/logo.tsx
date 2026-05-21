@@ -19,11 +19,13 @@ export default function Logo({
   withText?: boolean
   className?: string
 }) {
-  const src = variant === 'stamp' ? '/brand/logo.png'
-    : variant === 'emblem' ? '/brand/emblem.png'
-    : '/brand/logo.png'      // We use the full trimmed stamp for the logo too
-  // Aspect ratio: stamp is ~599×368 (≈1.63), emblem is square
-  const ratio = variant === 'emblem' ? 1 : 599 / 368
+  const src = variant === 'stamp'  ? '/brand/stamp.png'
+            : variant === 'emblem' ? '/brand/emblem.png'
+            : '/brand/logo.png'
+  // Aspect ratio: clean logo is ~680×334 (≈2.04), stamp is ~599×368 (≈1.63), emblem is square
+  const ratio = variant === 'emblem' ? 1
+              : variant === 'stamp'  ? 599 / 368
+              : 680 / 334
   const w = Math.round(size * ratio)
 
   return (
