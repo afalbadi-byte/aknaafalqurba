@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs'
 import { sql } from './db'
-import { sendSms } from './sms'
+import { sendSms, hasSmsProvider } from './sms'
+import { sendEmail } from './email'
 
 const CODE_LIFETIME_MIN = 10
 const MAX_ATTEMPTS      = 5
@@ -11,17 +12,21 @@ function gen6(): string {
 }
 
 /**
- * Generate a 6-digit OTP, store its hash in phone_verifications, and
- * send it via SMS to the given phone number.
+ * Generate a 6-digit OTP, store its hash, then deliver it:
+ *   • via SMS  — when an SMS provider (Msegat / Unifonic) is configured
+ *   • via email — fallback when no SMS provider exists (uses existing email infra)
  *
- * Returns { ok, cooldown_seconds? }
+ * `fallbackEmail` must be supplied for the email-fallback path to work.
+ *
+ * Returns { ok, cooldown_seconds?, via: 'sms' | 'email' }
  */
 export async function startPhoneVerification(
   member_id: number,
   phone: string,
   purpose: 'verify' | 'change' = 'verify',
-): Promise<{ ok: boolean; cooldown_seconds?: number }> {
-  // Rate-limit: one SMS per RESEND_COOLDOWN_S seconds
+  fallbackEmail?: string,
+): Promise<{ ok: boolean; cooldown_seconds?: number; via?: 'sms' | 'email' }> {
+  // Rate-limit: one message per RESEND_COOLDOWN_S seconds
   const [last] = await sql<{ created_at: string }[]>`
     SELECT created_at FROM phone_verifications
     WHERE member_id = ${member_id} AND phone = ${phone} AND purpose = ${purpose}
@@ -50,12 +55,42 @@ export async function startPhoneVerification(
     VALUES (${member_id}, ${phone}, ${hash}, ${purpose}, ${expires})
   `
 
-  const message =
-    `رمز التحقق لصندوق أكناف القربى: ${code}\n` +
-    `صالح لمدة ${CODE_LIFETIME_MIN} دقائق. لا تشاركه مع أحد.`
-  await sendSms(phone, message)
+  // ── Delivery ──────────────────────────────────────────────────────────────
+  if (hasSmsProvider()) {
+    const message =
+      `رمز التحقق لصندوق أكناف القربى: ${code}\n` +
+      `صالح لمدة ${CODE_LIFETIME_MIN} دقائق. لا تشاركه مع أحد.`
+    await sendSms(phone, message)
+    return { ok: true, via: 'sms' }
+  }
 
-  return { ok: true }
+  // No SMS provider — fall back to email delivery
+  if (fallbackEmail) {
+    const body = `
+      <p>لتفعيل رقم جوالك <strong dir="ltr">${phone}</strong> في صندوق أكناف القربى، استخدم الرمز التالي:</p>
+      <div style="text-align:center;margin:24px 0;">
+        <div style="display:inline-block;background:#f1f4f8;border:2px dashed #b8934b;
+                    border-radius:12px;padding:18px 32px;font-size:32px;font-weight:800;
+                    letter-spacing:8px;color:#0b2135;font-family:monospace;">
+          ${code}
+        </div>
+      </div>
+      <p style="font-size:13px;color:#5d7a99;">
+        الرمز صالح لمدة ${CODE_LIFETIME_MIN} دقائق فقط. لا تشارك هذا الرمز مع أحد.
+      </p>
+    `
+    await sendEmail({
+      to: fallbackEmail,
+      subject: 'رمز تفعيل رقم الجوال — صندوق أكناف القربى',
+      body,
+      preheader: `رمز تفعيل جوالك: ${code}`,
+    })
+    return { ok: true, via: 'email' }
+  }
+
+  // Absolute last resort: server console (dev/local)
+  console.log(`\n📱 [PHONE-OTP] ${phone} → ${code}\n`)
+  return { ok: true, via: 'sms' }
 }
 
 /**

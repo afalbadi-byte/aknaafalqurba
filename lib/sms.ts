@@ -68,13 +68,20 @@ async function trySendViaUnifonic(to: string, message: string): Promise<boolean>
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
+
+/** Returns true if at least one real SMS provider is configured */
+export function hasSmsProvider(): boolean {
+  return !!(process.env.MSEGAT_USERNAME && process.env.MSEGAT_API_KEY) ||
+         !!(process.env.UNIFONIC_APP_SID)
+}
+
 export async function sendSms(rawPhone: string, message: string): Promise<boolean> {
   const to = normalizePhone(rawPhone)
 
   if (await trySendViaMsegat(to, message))   return true
   if (await trySendViaUnifonic(to, message)) return true
 
-  // Dev fallback — no SMS credentials configured
+  // No SMS provider configured — log to console (dev mode)
   console.log(`\n📱 [SMS-DEV] To: ${to}\n${message}\n`)
   return true
 }

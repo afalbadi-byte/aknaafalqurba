@@ -7,6 +7,7 @@ import { log, getIP } from '@/lib/log'
 /**
  * POST /api/auth/phone-otp
  * Send a 6-digit OTP to the current member's registered phone number.
+ * Falls back to email delivery when no SMS provider is configured.
  */
 export async function POST(req: NextRequest) {
   const { user, error } = await requireUser()
@@ -15,12 +16,16 @@ export async function POST(req: NextRequest) {
   if (!user.phone)
     return jsonError('no_phone', 'لم يتم تسجيل رقم جوال لحسابك', 400)
 
-  const result = await startPhoneVerification(user.id, user.phone, 'verify')
+  // Load email for fallback delivery
+  const [row] = await sql`SELECT email FROM members WHERE id = ${user.id}`
+  const fallbackEmail: string | undefined = row?.email ?? undefined
+
+  const result = await startPhoneVerification(user.id, user.phone, 'verify', fallbackEmail)
   if (!result.ok)
     return jsonError('otp_cooldown', `انتظر ${result.cooldown_seconds} ثانية قبل إعادة الإرسال`, 429)
 
-  void log(user.id, 'phone.otp_sent', { ip: getIP(req), member_name: user.full_name })
-  return jsonOK({ sent: true })
+  void log(user.id, 'phone.otp_sent', { ip: getIP(req), member_name: user.full_name, details: { via: result.via } })
+  return jsonOK({ sent: true, via: result.via, email: result.via === 'email' ? row?.email : undefined })
 }
 
 /**

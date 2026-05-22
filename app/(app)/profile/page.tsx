@@ -179,6 +179,8 @@ export default function Profile() {
   const [phoneBusy,    setPhoneBusy]    = useState(false)
   const [phoneMsg,     setPhoneMsg]     = useState<any>(null)
   const [phoneCooldown, setPhoneCooldown] = useState(0)
+  const [phoneVia,     setPhoneVia]     = useState<'sms' | 'email' | null>(null)
+  const [phoneViaEmail, setPhoneViaEmail] = useState('')
 
   // countdown timer for resend cooldown
   useEffect(() => {
@@ -190,9 +192,13 @@ export default function Profile() {
   async function sendPhoneOtp() {
     setPhoneBusy(true); setPhoneMsg(null)
     try {
-      await api.auth.phoneOtpSend()
+      const r = await api.auth.phoneOtpSend()
       setPhoneStep('code')
-      setPhoneMsg({ ok: true, text: 'تم إرسال الرمز إلى جوالك' })
+      setPhoneVia(r.via ?? 'sms')
+      setPhoneViaEmail(r.email ?? '')
+      setPhoneMsg({ ok: true, text: r.via === 'email'
+        ? `تم إرسال الرمز إلى بريدك الإلكتروني ${r.email ?? ''}`
+        : 'تم إرسال الرمز إلى جوالك' })
       setPhoneCooldown(60)
     } catch (err: any) {
       if (err.code === 'otp_cooldown') {
@@ -534,7 +540,9 @@ export default function Profile() {
                   <form onSubmit={confirmPhoneOtp} className="space-y-3">
                     <div className="text-xs bg-brand-50 dark:bg-brand-800/60 text-brand-600 dark:text-brand-400 rounded px-3 py-2">
                       <ShieldCheck size={13} className="inline ml-1" />
-                      أرسلنا رمزاً إلى جوالك <strong dir="ltr">{user.phone}</strong>
+                      {phoneVia === 'email'
+                        ? <>أرسلنا الرمز إلى بريدك <strong>{phoneViaEmail}</strong> (لا يوجد حساب SMS بعد)</>
+                        : <>أرسلنا رمزاً إلى جوالك <strong dir="ltr">{user.phone}</strong></>}
                     </div>
                     <input
                       className="input text-center text-2xl font-bold tracking-widest font-mono"
