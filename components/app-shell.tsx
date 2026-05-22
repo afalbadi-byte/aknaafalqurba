@@ -67,8 +67,21 @@ export default function AppShell({ user, children }: { user: User; children: Rea
   }
 
   async function markAllRead() {
-    await api.notifications.readAll()
-    setUnread(0); setNotifs(n => n.map(x => ({ ...x, is_read: true })))
+    try {
+      await api.notifications.readAll()
+      setUnread(0); setNotifs(n => n.map(x => ({ ...x, is_read: true })))
+    } catch {}
+  }
+
+  async function openBell() {
+    setBellOpen(o => !o)
+    // Auto-mark all as read when opening the bell
+    if (!bellOpen && unread > 0) {
+      try {
+        await api.notifications.readAll()
+        setUnread(0); setNotifs(n => n.map(x => ({ ...x, is_read: true })))
+      } catch {}
+    }
   }
 
   async function handleLogout() {
@@ -120,7 +133,7 @@ export default function AppShell({ user, children }: { user: User; children: Rea
 
             {/* Bell */}
             <div className="relative">
-              <button onClick={() => setBellOpen(o => !o)} className="relative p-2 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-800 text-brand-700 dark:text-brand-300">
+              <button onClick={openBell} className="relative p-2 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-800 text-brand-700 dark:text-brand-300">
                 <Bell size={20} />
                 {unread > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 bg-gold-500 text-white text-[10px] min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1 font-bold">

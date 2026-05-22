@@ -13,8 +13,8 @@ export default function AdminHome() {
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       <header>
-        <h1 className="font-display text-2xl font-extrabold text-brand-950">لوحة الإدارة</h1>
-        <p className="text-brand-600 text-sm">نظرة شاملة على حالة الصندوق</p>
+        <h1 className="font-display text-2xl font-extrabold text-brand-950 dark:text-brand-50">لوحة الإدارة</h1>
+        <p className="text-brand-600 dark:text-brand-400 text-sm">نظرة شاملة على حالة الصندوق</p>
       </header>
 
       {f && (
