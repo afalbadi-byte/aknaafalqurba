@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { sql } from '@/lib/db'
 import { requireRole, TREASURY_ROLES, jsonOK, jsonError, parseJson } from '@/lib/auth'
 import { notify } from '@/lib/notify'
+import { log, getIP } from '@/lib/log'
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { user, error } = await requireRole(TREASURY_ROLES)
@@ -31,5 +32,6 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   await notify(p.member_id, `payment_${body.decision}`, title,
     `مبلغ ${Number(p.amount).toFixed(2)} ر.س`, '/payments')
 
+  void log(user.id, `payment.${body.decision}`, { ip: getIP(req), member_name: user.full_name, entity: 'payment', entity_id: id, details: { amount: p.amount, member_id: p.member_id } })
   return jsonOK()
 }

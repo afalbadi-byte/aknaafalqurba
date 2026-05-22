@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { sql } from '@/lib/db'
 import { requireRole, COMMITTEE_ROLES, TREASURY_ROLES, jsonOK, jsonError } from '@/lib/auth'
 import { saveUpload } from '@/lib/storage'
+import { log, getIP } from '@/lib/log'
 
 export async function GET() {
   const { error } = await requireRole(COMMITTEE_ROLES)
@@ -41,5 +42,6 @@ export async function POST(req: NextRequest) {
     )
     RETURNING id
   `
+  void log(user.id, 'expense.create', { ip: getIP(req), member_name: user.full_name, entity: 'expense', entity_id: ins.id, details: { title: String(fd.get('title')).trim(), amount: Number(fd.get('amount')) } })
   return jsonOK({ id: ins.id })
 }

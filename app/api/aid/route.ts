@@ -3,6 +3,7 @@ import { sql } from '@/lib/db'
 import { requireUser, requireRole, COMMITTEE_ROLES, jsonOK, jsonError } from '@/lib/auth'
 import { notifyCommittee } from '@/lib/notify'
 import { saveUpload } from '@/lib/storage'
+import { log, getIP } from '@/lib/log'
 
 // GET: list (committee)
 export async function GET(req: NextRequest) {
@@ -64,5 +65,6 @@ export async function POST(req: NextRequest) {
   await notifyCommittee('new_aid', 'طلب معونة جديد',
     `${user.full_name} - ${fd.get('title')}`, `/admin/aid?id=${ins.id}`)
 
+  void log(user.id, 'aid.create', { ip: getIP(req), member_name: user.full_name, entity: 'aid', entity_id: ins.id, details: { aid_type: String(fd.get('aid_type')), requested_amount: fd.get('requested_amount') ? Number(fd.get('requested_amount')) : null } })
   return jsonOK({ id: ins.id })
 }

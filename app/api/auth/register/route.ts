@@ -3,6 +3,7 @@ import { sql } from '@/lib/db'
 import { hashPassword, jsonOK, jsonError, parseJson, requireFields } from '@/lib/auth'
 import { notifyCommittee } from '@/lib/notify'
 import { startVerification } from '@/lib/verification'
+import { log, getIP } from '@/lib/log'
 
 export async function POST(req: NextRequest) {
   const body = await parseJson(req)
@@ -39,6 +40,7 @@ export async function POST(req: NextRequest) {
     )
     RETURNING id
   `
+  void log(ins.id, 'auth.register', { ip: getIP(req), member_name: String(body.full_name).trim(), entity: 'member', entity_id: ins.id, details: { phone, email: body.email || null } })
   await notifyCommittee('new_member', 'طلب عضوية جديد',
     `${body.full_name} يطلب الانضمام للصندوق`, `/admin/members?id=${ins.id}`)
 

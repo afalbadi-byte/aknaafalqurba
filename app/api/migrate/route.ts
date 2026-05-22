@@ -75,6 +75,25 @@ const MIGRATIONS: { name: string; up: string }[] = [
         ADD COLUMN IF NOT EXISTS updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW();
     `,
   },
+  {
+    name: '008-activity-logs',
+    up: `
+      CREATE TABLE IF NOT EXISTS activity_logs (
+        id          BIGSERIAL PRIMARY KEY,
+        member_id   INT REFERENCES members(id) ON DELETE SET NULL,
+        member_name VARCHAR(150),
+        action      VARCHAR(80)  NOT NULL,
+        entity      VARCHAR(40),
+        entity_id   INT,
+        details     TEXT,
+        ip          VARCHAR(45),
+        created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_logs_member  ON activity_logs(member_id);
+      CREATE INDEX IF NOT EXISTS idx_logs_action  ON activity_logs(action);
+      CREATE INDEX IF NOT EXISTS idx_logs_created ON activity_logs(created_at DESC);
+    `,
+  },
 ]
 
 export async function GET() {
@@ -118,6 +137,13 @@ export async function GET() {
             WHERE table_name = 'payments' AND column_name = 'reviewed_by'
           `
           return { name: m.name, status: col ? 'applied' : 'pending' }
+        }
+        if (m.name.startsWith('008')) {
+          const [tbl] = await sql`
+            SELECT table_name FROM information_schema.tables
+            WHERE table_name = 'activity_logs'
+          `
+          return { name: m.name, status: tbl ? 'applied' : 'pending' }
         }
         return { name: m.name, status: 'unknown' }
       } catch {

@@ -3,6 +3,7 @@ import { sql } from '@/lib/db'
 import { requireUser, requireRole, TREASURY_ROLES, jsonOK, jsonError } from '@/lib/auth'
 import { notifyCommittee } from '@/lib/notify'
 import { saveUpload } from '@/lib/storage'
+import { log, getIP } from '@/lib/log'
 
 // GET: list (committee only)
 export async function GET(req: NextRequest) {
@@ -78,5 +79,6 @@ export async function POST(req: NextRequest) {
     await notifyCommittee('new_payment', 'دفعة جديدة بانتظار المراجعة',
       `${user.full_name} - ${amount.toFixed(2)} ر.س`, `/admin/payments?id=${ins.id}`)
   }
+  void log(user.id, 'payment.create', { ip: getIP(req), member_name: user.full_name, entity: 'payment', entity_id: ins.id, details: { amount, method } })
   return jsonOK({ id: ins.id })
 }

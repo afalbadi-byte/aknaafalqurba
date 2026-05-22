@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { sql } from '@/lib/db'
 import { requireUser, hashPassword, verifyPassword, jsonOK, jsonError, parseJson, requireFields } from '@/lib/auth'
+import { log, getIP } from '@/lib/log'
 
 export async function POST(req: NextRequest) {
   const { user, error } = await requireUser()
@@ -20,5 +21,6 @@ export async function POST(req: NextRequest) {
 
   const hash = await hashPassword(body.new_password)
   await sql`UPDATE members SET password_hash = ${hash} WHERE id = ${user.id}`
+  void log(user.id, 'auth.password_change', { ip: getIP(req), member_name: user.full_name })
   return jsonOK()
 }

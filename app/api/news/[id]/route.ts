@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { sql } from '@/lib/db'
 import { currentUser, requireRole, COMMITTEE_ROLES, TOP_ADMIN_ROLES, jsonOK, jsonError } from '@/lib/auth'
 import { saveUpload } from '@/lib/storage'
+import { log, getIP } from '@/lib/log'
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const id = Number((await ctx.params).id)
@@ -18,7 +19,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 }
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const { error } = await requireRole(COMMITTEE_ROLES)
+  const { user, error } = await requireRole(COMMITTEE_ROLES)
   if (error) return error
 
   const id = Number((await ctx.params).id)
@@ -37,12 +38,15 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   }
   if (cover) sets.cover_image = cover
   await sql`UPDATE news SET ${sql(sets)} WHERE id = ${id}`
+  void log(user!.id, 'news.update', { ip: getIP(req), member_name: user!.full_name, entity: 'news', entity_id: id })
   return jsonOK()
 }
 
-export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const { error } = await requireRole(TOP_ADMIN_ROLES)
+export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const { user, error } = await requireRole(TOP_ADMIN_ROLES)
   if (error) return error
-  await sql`DELETE FROM news WHERE id = ${Number((await ctx.params).id)}`
+  const id = Number((await ctx.params).id)
+  await sql`DELETE FROM news WHERE id = ${id}`
+  void log(user!.id, 'news.delete', { ip: getIP(req), member_name: user!.full_name, entity: 'news', entity_id: id })
   return jsonOK()
 }

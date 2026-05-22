@@ -3,6 +3,7 @@ import { sql } from '@/lib/db'
 import { currentUser, requireRole, COMMITTEE_ROLES, jsonOK, jsonError } from '@/lib/auth'
 import { notify } from '@/lib/notify'
 import { saveUpload } from '@/lib/storage'
+import { log, getIP } from '@/lib/log'
 
 // GET: list (everyone can list public news; logged-in see all)
 export async function GET(req: NextRequest) {
@@ -79,5 +80,6 @@ export async function POST(req: NextRequest) {
     notify(m.id, 'news', `خبر جديد: ${fd.get('title')}`, null, `/news/${ins.id}`)
   ))
 
+  void log(user.id, 'news.create', { ip: getIP(req), member_name: user.full_name, entity: 'news', entity_id: ins.id, details: { title: String(fd.get('title')).trim() } })
   return jsonOK({ id: ins.id })
 }

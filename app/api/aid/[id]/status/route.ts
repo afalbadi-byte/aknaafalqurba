@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { sql } from '@/lib/db'
 import { requireRole, jsonOK, jsonError, parseJson } from '@/lib/auth'
 import { notify } from '@/lib/notify'
+import { log, getIP } from '@/lib/log'
 
 const VALID  = ['submitted', 'under_review', 'approved', 'rejected', 'disbursed']
 const TITLES: Record<string, string> = {
@@ -36,6 +37,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     WHERE id = ${id}
   `
 
+  void log(user.id, 'aid.status_change', { ip: getIP(req), member_name: user.full_name, entity: 'aid', entity_id: id, details: { new_status: body.status, title: a.title } })
   if (TITLES[body.status]) {
     await notify(a.member_id, `aid_${body.status}`, TITLES[body.status], a.title, '/aid')
   }
