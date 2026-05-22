@@ -4,7 +4,7 @@ import { api } from '@/lib/api-client'
 import { ROLE_LABELS, RELATION_LABELS, BRANCHES, GENDER_LABELS, STATUS_LABELS, statusBadge } from '@/lib/utils'
 import {
   Save, Lock, UserPlus, Trash2, Loader2, Mail, ShieldCheck,
-  CheckCircle2, Camera, X as XIcon,
+  CheckCircle2, Camera, X as XIcon, BrainCircuit, Users,
 } from 'lucide-react'
 import { Avatar } from '@/components/app-shell'
 
@@ -15,6 +15,13 @@ export default function Profile() {
   const [msg,  setMsg]  = useState<any>(null)
   const [deps, setDeps] = useState<any[]>([])
   const [newDep, setNewDep] = useState({ full_name: '', relation: 'son', birth_year: '' })
+
+  // Family register (سجل الأسرة) upload + AI extraction
+  const famRegRef = useRef<HTMLInputElement>(null)
+  const [famRegStep,    setFamRegStep]    = useState<'idle' | 'extracting' | 'review'>('idle')
+  const [famRegError,   setFamRegError]   = useState('')
+  const [extractedMembers, setExtractedMembers] = useState<any[]>([])
+
   const [pwd, setPwd] = useState({ current: '', new: '', confirm: '' })
   const [pwdMsg, setPwdMsg] = useState<any>(null)
 
@@ -176,6 +183,57 @@ export default function Profile() {
   async function delDep(id: number) {
     if (!confirm('حذف هذا الفرد؟')) return
     await api.members.delDependent(id); loadDeps()
+  }
+
+  // Family register AI extraction
+  async function handleFamRegFile(file: File | null) {
+    if (!file) return
+    if (file.size > 8 * 1024 * 1024) {
+      setFamRegError('حجم الملف يجب أن يكون أقل من ٨ ميجابايت')
+      return
+    }
+    setFamRegError('')
+    setFamRegStep('extracting')
+
+    const reader = new FileReader()
+    reader.onload = async () => {
+      try {
+        const r = await api.members.familyRegisterExtract(reader.result as string)
+        if (!r.members || r.members.length === 0) {
+          setFamRegError('لم يتم التعرف على أي أفراد في المستند. تأكد من وضوح الصورة.')
+          setFamRegStep('idle')
+          return
+        }
+        setExtractedMembers(r.members.map((m: any, i: number) => ({ ...m, _key: i })))
+        setFamRegStep('review')
+      } catch (e: any) {
+        setFamRegError(e.message || 'حدث خطأ أثناء الاستخراج')
+        setFamRegStep('idle')
+      }
+    }
+    reader.readAsDataURL(file)
+    if (famRegRef.current) famRegRef.current.value = ''
+  }
+
+  async function saveFamilyRegister() {
+    if (extractedMembers.length === 0) return
+    setFamRegStep('extracting') // reuse as saving spinner
+    try {
+      await api.members.familyRegisterSave(extractedMembers)
+      setFamRegStep('idle')
+      setExtractedMembers([])
+      loadDeps()
+    } catch (e: any) {
+      setFamRegError(e.message || 'فشل الحفظ')
+      setFamRegStep('review')
+    }
+  }
+
+  function updateExtracted(key: number, field: string, value: string) {
+    setExtractedMembers(prev => prev.map(m => m._key === key ? { ...m, [field]: value } : m))
+  }
+  function removeExtracted(key: number) {
+    setExtractedMembers(prev => prev.filter(m => m._key !== key))
   }
 
   // ----- Password -----
@@ -489,13 +547,119 @@ export default function Profile() {
 
       {/* Dependents */}
       <div className="card">
-        <div className="px-6 py-4 border-b border-brand-100 dark:border-brand-700">
-          <h3 className="font-bold text-brand-950 dark:text-brand-50">أفراد عائلتي</h3>
-          <p className="text-xs text-brand-500 dark:text-brand-400 mt-0.5">يساعد ذلك لجنة الدعم على تقدير الحاجة</p>
+        <div className="px-6 py-4 border-b border-brand-100 dark:border-brand-700 flex items-center justify-between gap-3">
+          <div>
+            <h3 className="font-bold text-brand-950 dark:text-brand-50 flex items-center gap-2">
+              <Users size={18} /> أفراد عائلتي
+            </h3>
+            <p className="text-xs text-brand-500 dark:text-brand-400 mt-0.5">يساعد ذلك لجنة الدعم على تقدير الحاجة</p>
+          </div>
+          {/* Family register upload button */}
+          <button
+            type="button"
+            onClick={() => { setFamRegError(''); famRegRef.current?.click() }}
+            disabled={famRegStep === 'extracting'}
+            className="btn-secondary !text-xs !py-2 !px-3 shrink-0 flex items-center gap-1.5"
+            title="رفع سجل الأسرة من توكلنا لاستخراج الأفراد تلقائياً"
+          >
+            {famRegStep === 'extracting'
+              ? <Loader2 size={14} className="animate-spin" />
+              : <BrainCircuit size={14} />}
+            {famRegStep === 'extracting' ? 'جاري الاستخراج...' : 'استخراج من سجل الأسرة'}
+          </button>
+          <input
+            ref={famRegRef}
+            type="file"
+            className="hidden"
+            accept=".pdf,image/*"
+            onChange={e => handleFamRegFile(e.target.files?.[0] ?? null)}
+          />
         </div>
-        <div className="p-6">
+
+        <div className="p-6 space-y-5">
+
+          {/* Error banner */}
+          {famRegError && (
+            <div className="flex items-start gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-400 text-sm rounded-lg px-4 py-3">
+              <XIcon size={15} className="shrink-0 mt-0.5" />
+              <span>{famRegError}</span>
+              <button onClick={() => setFamRegError('')} className="mr-auto text-red-400 hover:text-red-600"><XIcon size={14} /></button>
+            </div>
+          )}
+
+          {/* ── Review panel (shown after extraction) ── */}
+          {famRegStep === 'review' && extractedMembers.length > 0 && (
+            <div className="rounded-xl border-2 border-gold-300 dark:border-gold-600 bg-gold-50/40 dark:bg-gold-900/10 overflow-hidden">
+              <div className="px-4 py-3 bg-gold-100/60 dark:bg-gold-900/20 border-b border-gold-200 dark:border-gold-700 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-sm font-bold text-brand-900 dark:text-brand-100">
+                  <BrainCircuit size={16} className="text-gold-600" />
+                  تم استخراج {extractedMembers.length} فرد — راجع البيانات قبل الحفظ
+                </div>
+                <button
+                  onClick={() => { setFamRegStep('idle'); setExtractedMembers([]) }}
+                  className="text-brand-400 hover:text-brand-700 dark:hover:text-brand-200"
+                >
+                  <XIcon size={16} />
+                </button>
+              </div>
+
+              <div className="p-4 space-y-2">
+                {extractedMembers.map(m => (
+                  <div key={m._key} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center">
+                    <input
+                      className="input !py-2 !text-sm"
+                      value={m.full_name}
+                      onChange={e => updateExtracted(m._key, 'full_name', e.target.value)}
+                      placeholder="الاسم الكامل"
+                    />
+                    <select
+                      className="input !py-2 !text-sm w-32"
+                      value={m.relation}
+                      onChange={e => updateExtracted(m._key, 'relation', e.target.value)}
+                    >
+                      {Object.entries(RELATION_LABELS).map(([k, v]) => (
+                        <option key={k} value={k}>{v}</option>
+                      ))}
+                    </select>
+                    <input
+                      className="input !py-2 !text-sm w-24 text-center"
+                      type="number"
+                      placeholder="السنة"
+                      value={m.birth_year ?? ''}
+                      onChange={e => updateExtracted(m._key, 'birth_year', e.target.value)}
+                    />
+                    <button
+                      onClick={() => removeExtracted(m._key)}
+                      className="text-red-400 hover:text-red-600 dark:hover:text-red-400 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                ))}
+
+                <div className="flex gap-2 pt-2 border-t border-gold-200 dark:border-gold-700">
+                  <button
+                    onClick={saveFamilyRegister}
+                    disabled={extractedMembers.length === 0}
+                    className="btn-primary flex-1 !py-2 !text-sm"
+                  >
+                    <CheckCircle2 size={15} />
+                    حفظ {extractedMembers.length} فرد
+                  </button>
+                  <button
+                    onClick={() => { setFamRegStep('idle'); setExtractedMembers([]); setFamRegError('') }}
+                    className="btn-secondary !py-2 !text-sm"
+                  >
+                    إلغاء
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Existing dependents */}
           {deps.length > 0 && (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {deps.map(d => (
                 <div key={d.id} className="bg-brand-50/60 dark:bg-brand-800/50 border border-brand-100 dark:border-brand-700 rounded-lg px-4 py-3 flex items-center justify-between">
                   <div>
@@ -507,6 +671,8 @@ export default function Profile() {
               ))}
             </div>
           )}
+
+          {/* Manual add form */}
           <form onSubmit={addDep} className="grid sm:grid-cols-4 gap-3">
             <input className="input sm:col-span-2" placeholder="الاسم"
               value={newDep.full_name} onChange={e => setNewDep({ ...newDep, full_name: e.target.value })} />
@@ -517,9 +683,10 @@ export default function Profile() {
             <input className="input" type="number" placeholder="سنة الميلاد"
               value={newDep.birth_year} onChange={e => setNewDep({ ...newDep, birth_year: e.target.value })} />
             <button className="btn-primary sm:col-span-4" type="submit">
-              <UserPlus size={16} /> إضافة فرد
+              <UserPlus size={16} /> إضافة فرد يدوياً
             </button>
           </form>
+
         </div>
       </div>
     </div>

@@ -59,6 +59,14 @@ export const api = {
     avatarUpload: (fd: FormData)    => post('/api/members/avatar', fd),
     avatarRemove: ()                => del('/api/members/avatar'),
     idDocument:   (id: number)      => get(`/api/members/${id}/id-document`),
+    familyRegisterExtract: (document: string) =>
+      post('/api/members/family-register', { document }),
+    familyRegisterSave: (members: any[]) =>
+      call('/api/members/family-register', {
+        method: 'PUT',
+        body: JSON.stringify({ members }),
+        headers: { 'Content-Type': 'application/json' },
+      }),
   },
   payments: {
     create: (fd: FormData)          => post('/api/payments', fd),
