@@ -116,6 +116,11 @@ const MIGRATIONS: { name: string; up: string }[] = [
     up: `ALTER TABLE family_dependents ADD COLUMN IF NOT EXISTS national_id VARCHAR(10);`,
   },
   {
+    name: '015-members-national-id-unique',
+    up: `CREATE UNIQUE INDEX IF NOT EXISTS idx_members_national_id_unique
+         ON members(national_id) WHERE national_id IS NOT NULL;`,
+  },
+  {
     name: '008-activity-logs',
     up: `
       CREATE TABLE IF NOT EXISTS activity_logs (
@@ -219,6 +224,13 @@ export async function GET() {
             WHERE table_name = 'family_dependents' AND column_name = 'national_id'
           `
           return { name: m.name, status: col ? 'applied' : 'pending' }
+        }
+        if (m.name.startsWith('015')) {
+          const [idx] = await sql`
+            SELECT indexname FROM pg_indexes
+            WHERE tablename = 'members' AND indexname = 'idx_members_national_id_unique'
+          `
+          return { name: m.name, status: idx ? 'applied' : 'pending' }
         }
         if (m.name.startsWith('008')) {
           const [tbl] = await sql`

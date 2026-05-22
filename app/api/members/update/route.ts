@@ -14,6 +14,17 @@ export async function POST(req: NextRequest) {
   const id   = Number(body.id || user.id)
   if (id !== user.id && !isAdmin(user)) return jsonError('forbidden', 'لا تملك الصلاحية', 403)
 
+  // Check national_id uniqueness before updating
+  if (body.national_id) {
+    const nid = String(body.national_id).replace(/\D/g, '')
+    const clash = await sql`
+      SELECT id FROM members WHERE national_id = ${nid} AND id != ${id}
+    `
+    if (clash.length)
+      return jsonError('national_id_in_use', 'رقم الهوية مستخدم لدى عضو آخر', 409)
+    body.national_id = nid
+  }
+
   // Build update dynamically — only the fields actually present
   const sets: Record<string, any> = {}
   for (const f of FIELDS) {
@@ -21,6 +32,14 @@ export async function POST(req: NextRequest) {
   }
   if (!Object.keys(sets).length) return jsonError('no_changes', 'لا توجد تعديلات', 400)
 
-  await sql`UPDATE members SET ${sql(sets)}, updated_at = NOW() WHERE id = ${id}`
+  try {
+    await sql`UPDATE members SET ${sql(sets)}, updated_at = NOW() WHERE id = ${id}`
+  } catch (e: any) {
+    const msg = String(e?.message || '')
+    if (msg.includes('national_id'))
+      return jsonError('national_id_in_use', 'رقم الهوية مستخدم لدى عضو آخر', 409)
+    throw e
+  }
+
   return jsonOK()
 }

@@ -23,6 +23,12 @@ export async function POST(req: NextRequest) {
     if (e.length) return jsonError('email_in_use', 'البريد الإلكتروني مسجّل بالفعل', 409)
   }
 
+  if (body.national_id) {
+    const nid = String(body.national_id).replace(/\D/g, '')
+    const n = await sql`SELECT id FROM members WHERE national_id = ${nid}`
+    if (n.length) return jsonError('national_id_in_use', 'رقم الهوية مسجّل بالفعل — لا يمكن التسجيل مرتين', 409)
+  }
+
   // Derive birth_year from birth_date if provided
   const birthDate = body.birth_date ? String(body.birth_date).slice(0, 10) : null
   const birthYear = birthDate
@@ -30,26 +36,37 @@ export async function POST(req: NextRequest) {
     : (body.birth_year ? Number(body.birth_year) : null)
 
   const hash = await hashPassword(body.password)
-  const [ins] = await sql<{ id: number }[]>`
-    INSERT INTO members (full_name, national_id, phone, email, branch, birth_year, birth_date, city, address, password_hash, role, status, gender, generation_number)
-    VALUES (
-      ${String(body.full_name).trim()},
-      ${body.national_id || null},
-      ${phone},
-      ${body.email || null},
-      ${body.branch || null},
-      ${birthYear},
-      ${birthDate},
-      ${body.city || null},
-      ${body.address || null},
-      ${hash},
-      'member',
-      'pending',
-      ${body.gender || null},
-      ${body.generation_number ? Number(body.generation_number) : null}
-    )
-    RETURNING id
-  `
+  let ins: { id: number }
+  try {
+    const [row] = await sql<{ id: number }[]>`
+      INSERT INTO members (full_name, national_id, phone, email, branch, birth_year, birth_date, city, address, password_hash, role, status, gender, generation_number)
+      VALUES (
+        ${String(body.full_name).trim()},
+        ${body.national_id ? String(body.national_id).replace(/\D/g, '') : null},
+        ${phone},
+        ${body.email || null},
+        ${body.branch || null},
+        ${birthYear},
+        ${birthDate},
+        ${body.city || null},
+        ${body.address || null},
+        ${hash},
+        'member',
+        'pending',
+        ${body.gender || null},
+        ${body.generation_number ? Number(body.generation_number) : null}
+      )
+      RETURNING id
+    `
+    ins = row
+  } catch (e: any) {
+    const msg = String(e?.message || '')
+    if (msg.includes('idx_members_national_id_unique') || msg.includes('national_id'))
+      return jsonError('national_id_in_use', 'رقم الهوية مسجّل بالفعل — لا يمكن التسجيل مرتين', 409)
+    if (msg.includes('phone'))
+      return jsonError('phone_in_use', 'رقم الجوال مسجّل بالفعل', 409)
+    throw e
+  }
   // Store id_document — requires migration 011
   let aiVerified = false
   if (body.id_document) {
