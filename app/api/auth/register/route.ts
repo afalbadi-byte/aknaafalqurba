@@ -22,16 +22,23 @@ export async function POST(req: NextRequest) {
     if (e.length) return jsonError('email_in_use', 'البريد الإلكتروني مسجّل بالفعل', 409)
   }
 
+  // Derive birth_year from birth_date if provided
+  const birthDate = body.birth_date ? String(body.birth_date).slice(0, 10) : null
+  const birthYear = birthDate
+    ? Number(birthDate.slice(0, 4))
+    : (body.birth_year ? Number(body.birth_year) : null)
+
   const hash = await hashPassword(body.password)
   const [ins] = await sql<{ id: number }[]>`
-    INSERT INTO members (full_name, national_id, phone, email, branch, birth_year, city, address, password_hash, role, status, gender, generation_number)
+    INSERT INTO members (full_name, national_id, phone, email, branch, birth_year, birth_date, city, address, password_hash, role, status, gender, generation_number)
     VALUES (
       ${String(body.full_name).trim()},
       ${body.national_id || null},
       ${phone},
       ${body.email || null},
       ${body.branch || null},
-      ${body.birth_year ? Number(body.birth_year) : null},
+      ${birthYear},
+      ${birthDate},
       ${body.city || null},
       ${body.address || null},
       ${hash},

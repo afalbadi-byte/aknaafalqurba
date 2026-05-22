@@ -139,7 +139,7 @@ export default async function LandingPage() {
       <section className="bg-brand-950 text-white py-12">
         <div className="container mx-auto px-4 sm:px-6 grid md:grid-cols-3 gap-6 text-center">
           <Trust icon={Shield}     title="بياناتك محمية" desc="جميع البيانات مشفّرة وتُحفظ بسرّية تامة" />
-          <Trust icon={Users}      title="إدارة جماعية" desc="لجنة الصندوق تشرف على كل عمليات الصرف" />
+          <Trust icon={Users}      title="إدارة جماعية" desc="لجنة الصندوق تشرف على جميع عمليات الصندوق" />
           <Trust icon={TrendingUp} title="تقارير دورية"  desc="ميزانية شفافة ومتاحة لجميع الأعضاء" />
         </div>
       </section>

@@ -2,17 +2,210 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { UserPlus, Loader2, CheckCircle2 } from 'lucide-react'
+import { UserPlus, Loader2, CheckCircle2, CalendarDays } from 'lucide-react'
 import { api } from '@/lib/api-client'
 import Logo from '@/components/logo'
 import DarkToggle from '@/components/dark-toggle'
 import { BRANCHES } from '@/lib/utils'
 
+/* ─────────────────────────────────────────────────────
+   Hijri ↔ Gregorian conversion (Tabular Islamic Calendar)
+───────────────────────────────────────────────────── */
+const HIJRI_MONTHS = [
+  'محرم','صفر','ربيع الأول','ربيع الآخر',
+  'جمادى الأولى','جمادى الآخرة','رجب','شعبان',
+  'رمضان','شوال','ذو القعدة','ذو الحجة',
+]
+
+function hijriToGregorian(hY: number, hM: number, hD: number): string {
+  const jdn =
+    hD +
+    Math.ceil(29.5001 * (hM - 1)) +
+    (hY - 1) * 354 +
+    Math.floor((3 + 11 * hY) / 30) +
+    1948440 - 385
+
+  let l = jdn + 68569
+  const n = Math.floor((4 * l) / 146097)
+  l -= Math.floor((146097 * n + 3) / 4)
+  const i = Math.floor((4000 * (l + 1)) / 1461001)
+  l -= Math.floor((1461 * i) / 4) - 31
+  const j = Math.floor((80 * l) / 2447)
+  const gD = l - Math.floor((2447 * j) / 80)
+  const gM = j + 2 - 12 * Math.floor(j / 11)
+  const gY = 100 * (n - 49) + i + Math.floor(j / 11)
+  return `${gY}-${String(gM).padStart(2, '0')}-${String(gD).padStart(2, '0')}`
+}
+
+function gregorianToHijri(iso: string): { y: number; m: number; d: number } | null {
+  if (!iso) return null
+  const [gy, gm, gd] = iso.split('-').map(Number)
+  const jdn =
+    Math.floor((1461 * (gy + 4800 + Math.floor((gm - 14) / 12))) / 4) +
+    Math.floor((367 * (gm - 2 - 12 * Math.floor((gm - 14) / 12))) / 12) -
+    Math.floor((3 * Math.floor((gy + 4900 + Math.floor((gm - 14) / 12)) / 100)) / 4) +
+    gd - 32075
+
+  const l  = jdn - 1948440 + 10632
+  const n2 = Math.floor((l - 1) / 10631)
+  const l2 = l - 10631 * n2 + 354
+  const j2 =
+    Math.floor((10985 - l2) / 5316) * Math.floor((50 * l2) / 17719) +
+    Math.floor(l2 / 5670) * Math.floor((43 * l2) / 15238)
+  const l3 =
+    l2 -
+    Math.floor((30 - j2) / 15) * Math.floor((17719 * j2) / 50) -
+    Math.floor(j2 / 16) * Math.floor((15238 * j2) / 43) +
+    29
+  const hM = Math.floor((24 * l3) / 709)
+  const hD = l3 - Math.floor((709 * hM) / 24)
+  const hY = 30 * n2 + j2 - 30
+  return { y: hY, m: hM, d: hD }
+}
+
+/* ─────────────────────────────────────────────────────
+   BirthDatePicker component
+───────────────────────────────────────────────────── */
+function BirthDatePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [cal, setCal] = useState<'gregorian' | 'hijri'>('gregorian')
+
+  // Hijri selects state — initialised from current value if exists
+  const initH = value ? gregorianToHijri(value) : null
+  const [hD, setHD] = useState(initH?.d ? String(initH.d) : '')
+  const [hM, setHM] = useState(initH?.m ? String(initH.m) : '')
+  const [hY, setHY] = useState(initH?.y ? String(initH.y) : '')
+
+  function onHijriChange(d: string, m: string, y: string) {
+    setHD(d); setHM(m); setHY(y)
+    if (d && m && y) {
+      const iso = hijriToGregorian(Number(y), Number(m), Number(d))
+      onChange(iso)
+    }
+  }
+
+  function switchToHijri() {
+    if (value) {
+      const h = gregorianToHijri(value)
+      if (h) { setHD(String(h.d)); setHM(String(h.m)); setHY(String(h.y)) }
+    }
+    setCal('hijri')
+  }
+
+  function switchToGregorian() {
+    setCal('gregorian')
+  }
+
+  const currentHijriYear = 1446
+  const hijriYears = Array.from({ length: 80 }, (_, i) => currentHijriYear - i)
+  const gregYears  = Array.from({ length: 80 }, (_, i) => new Date().getFullYear() - 10 - i)
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <label className="label mb-0">تاريخ الميلاد</label>
+        {/* Toggle */}
+        <div className="flex rounded-lg overflow-hidden border border-brand-200 dark:border-brand-700 text-xs">
+          <button
+            type="button"
+            onClick={switchToGregorian}
+            className={`px-3 py-1.5 font-semibold transition ${
+              cal === 'gregorian'
+                ? 'bg-brand-950 text-white dark:bg-gold-500 dark:text-brand-950'
+                : 'bg-white dark:bg-brand-800 text-brand-600 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-brand-700'
+            }`}
+          >
+            ميلادي
+          </button>
+          <button
+            type="button"
+            onClick={switchToHijri}
+            className={`px-3 py-1.5 font-semibold transition ${
+              cal === 'hijri'
+                ? 'bg-brand-950 text-white dark:bg-gold-500 dark:text-brand-950'
+                : 'bg-white dark:bg-brand-800 text-brand-600 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-brand-700'
+            }`}
+          >
+            هجري
+          </button>
+        </div>
+      </div>
+
+      {cal === 'gregorian' ? (
+        /* ── Gregorian: native date input ── */
+        <input
+          className="input"
+          type="date"
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          max={`${new Date().getFullYear() - 10}-12-31`}
+        />
+      ) : (
+        /* ── Hijri: three selects ── */
+        <div className="grid grid-cols-3 gap-2">
+          {/* Day */}
+          <select
+            className="input text-sm"
+            value={hD}
+            onChange={e => onHijriChange(e.target.value, hM, hY)}
+          >
+            <option value="">اليوم</option>
+            {Array.from({ length: 30 }, (_, i) => i + 1).map(d => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
+
+          {/* Month */}
+          <select
+            className="input text-sm"
+            value={hM}
+            onChange={e => onHijriChange(hD, e.target.value, hY)}
+          >
+            <option value="">الشهر</option>
+            {HIJRI_MONTHS.map((name, i) => (
+              <option key={i + 1} value={i + 1}>{name}</option>
+            ))}
+          </select>
+
+          {/* Year */}
+          <select
+            className="input text-sm"
+            value={hY}
+            onChange={e => onHijriChange(hD, hM, e.target.value)}
+          >
+            <option value="">السنة</option>
+            {hijriYears.map(y => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Show converted result */}
+      {value && (
+        <div className="flex items-center gap-1.5 text-xs text-brand-500 dark:text-brand-400">
+          <CalendarDays size={12} />
+          {cal === 'hijri' ? (
+            <span>يعادل: {new Date(value + 'T00:00:00').toLocaleDateString('ar-SA-u-nu-latn', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+          ) : (
+            (() => {
+              const h = gregorianToHijri(value)
+              return h ? <span>هجري: {h.d} {HIJRI_MONTHS[h.m - 1]} {h.y}</span> : null
+            })()
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ─────────────────────────────────────────────────────
+   Register page
+───────────────────────────────────────────────────── */
 export default function Register() {
   const router = useRouter()
   const [form, setForm] = useState({
     full_name: '', phone: '', email: '', branch: '', city: '',
-    birth_year: '', gender: '', generation_number: '', password: '', confirm: '',
+    birth_date: '', gender: '', generation_number: '', password: '', confirm: '',
   })
   const [busy,  setBusy]  = useState(false)
   const [error, setError] = useState('')
@@ -28,6 +221,7 @@ export default function Register() {
       const { confirm, ...payload } = form
       const r = await api.auth.register({
         ...payload,
+        birth_date: payload.birth_date || undefined,
         generation_number: payload.generation_number ? Number(payload.generation_number) : undefined,
       })
       if (r.email_pending && r.member_id) {
@@ -70,7 +264,6 @@ export default function Register() {
               <F label="الاسم الكامل *"      v={form.full_name}  on={v => set('full_name', v)} required />
               <F label="رقم الجوال *"        v={form.phone}      on={v => set('phone', v)} required placeholder="05XXXXXXXX" />
               <F label="البريد الإلكتروني"   v={form.email}      on={v => set('email', v)} type="email" placeholder="example@email.com" />
-              <F label="سنة الميلاد"          v={form.birth_year} on={v => set('birth_year', v)} type="number" placeholder="1990" />
 
               {/* Branch */}
               <div>
@@ -100,6 +293,11 @@ export default function Register() {
                     <option key={n} value={n}>الجيل {n}</option>
                   ))}
                 </select>
+              </div>
+
+              {/* Birth date — spans full width */}
+              <div className="sm:col-span-2">
+                <BirthDatePicker value={form.birth_date} onChange={v => set('birth_date', v)} />
               </div>
 
               <F label="المدينة"            v={form.city}       on={v => set('city', v)} />
