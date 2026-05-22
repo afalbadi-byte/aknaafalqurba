@@ -80,6 +80,11 @@ export const api = {
     edit:   (id: number, data: object) => patch(`/api/payments/${id}`, data),
     remove: (id: number)            => del(`/api/payments/${id}`),
   },
+  letterTemplates: {
+    list:   ()                            => get('/api/letter-templates'),
+    create: (data: object)                => post('/api/letter-templates', data),
+    remove: (id: number)                  => del(`/api/letter-templates/${id}`),
+  },
   expenses: {
     list:   ()                      => get('/api/expenses'),
     create: (fd: FormData)          => post('/api/expenses', fd),

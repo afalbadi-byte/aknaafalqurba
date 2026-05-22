@@ -129,6 +129,21 @@ const MIGRATIONS: { name: string; up: string }[] = [
     up: `ALTER TYPE member_role ADD VALUE IF NOT EXISTS 'secretary';`,
   },
   {
+    name: '019-letter-templates',
+    up: `
+      CREATE TABLE IF NOT EXISTS letter_templates (
+        id         SERIAL PRIMARY KEY,
+        category   VARCHAR(80)  NOT NULL DEFAULT 'إدارية عامة',
+        title      VARCHAR(200) NOT NULL,
+        subject    VARCHAR(200) NOT NULL DEFAULT '',
+        body       TEXT         NOT NULL DEFAULT '',
+        created_by INT          REFERENCES members(id) ON DELETE SET NULL,
+        created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_letter_templates_cat ON letter_templates(category);
+    `,
+  },
+  {
     name: '008-activity-logs',
     up: `
       CREATE TABLE IF NOT EXISTS activity_logs (
@@ -254,6 +269,13 @@ export async function GET() {
             WHERE pg_type.typname = 'member_role' AND enumlabel = 'secretary'
           `
           return { name: m.name, status: val ? 'applied' : 'pending' }
+        }
+        if (m.name.startsWith('019')) {
+          const [tbl] = await sql`
+            SELECT table_name FROM information_schema.tables
+            WHERE table_name = 'letter_templates'
+          `
+          return { name: m.name, status: tbl ? 'applied' : 'pending' }
         }
         if (m.name.startsWith('008')) {
           const [tbl] = await sql`
