@@ -87,6 +87,9 @@ export async function POST(req: NextRequest) {
     } else {
       await sql`UPDATE members SET id_verified = false WHERE id = ${memberId}`
     }
+
+    // Delete stored ID document after admin has processed it (privacy)
+    await sql`UPDATE members SET id_document = NULL WHERE id = ${memberId}`
   } catch { /* migration 012 pending — ignore */ }
 
   void log(user!.id, 'admin.id_verify', {

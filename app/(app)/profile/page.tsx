@@ -356,37 +356,42 @@ export default function Profile() {
               <span className={`badge ${statusBadge(user.status)}`}>{STATUS_LABELS[user.status] || user.status}</span>
             </div>
 
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={handleAvatarChange}
-            />
-            {avatarMsg && (
-              <div className={`mt-3 text-xs rounded px-3 py-2 ${avatarMsg.ok ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'}`}>
-                {avatarMsg.text}
-              </div>
+            {/* Avatar upload — hidden for female members */}
+            {user.gender !== 'female' && (
+              <>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handleAvatarChange}
+                />
+                {avatarMsg && (
+                  <div className={`mt-3 text-xs rounded px-3 py-2 ${avatarMsg.ok ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'}`}>
+                    {avatarMsg.text}
+                  </div>
+                )}
+                <div className="mt-4 flex gap-2">
+                  <button
+                    className="btn-secondary flex-1 text-xs"
+                    onClick={() => fileRef.current?.click()}
+                    disabled={avatarBusy}
+                  >
+                    <Camera size={14} /> تغيير الصورة
+                  </button>
+                  {user.avatar && (
+                    <button
+                      className="btn-ghost !p-2 text-red-500 hover:text-red-600 dark:text-red-400"
+                      onClick={removeAvatar}
+                      disabled={avatarBusy}
+                      title="حذف الصورة"
+                    >
+                      <XIcon size={16} />
+                    </button>
+                  )}
+                </div>
+              </>
             )}
-            <div className="mt-4 flex gap-2">
-              <button
-                className="btn-secondary flex-1 text-xs"
-                onClick={() => fileRef.current?.click()}
-                disabled={avatarBusy}
-              >
-                <Camera size={14} /> تغيير الصورة
-              </button>
-              {user.avatar && (
-                <button
-                  className="btn-ghost !p-2 text-red-500 hover:text-red-600 dark:text-red-400"
-                  onClick={removeAvatar}
-                  disabled={avatarBusy}
-                  title="حذف الصورة"
-                >
-                  <XIcon size={16} />
-                </button>
-              )}
-            </div>
           </div>
 
           {/* Email verification (only when unverified) */}
