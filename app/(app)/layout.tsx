@@ -5,7 +5,7 @@ import AppShell from '@/components/app-shell'
 import ThemeProvider from '@/components/theme-provider'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const user = await currentUser()
+  const user = await currentUser().catch(() => null)
   if (!user) redirect('/login')
   if (user.status !== 'active') redirect('/login?next=/dashboard')
 

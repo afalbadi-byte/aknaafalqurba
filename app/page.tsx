@@ -28,7 +28,7 @@ async function loadData() {
 }
 
 export default async function LandingPage() {
-  const [user, data] = await Promise.all([currentUser(), loadData()])
+  const [user, data] = await Promise.all([currentUser().catch(() => null), loadData()])
   const { settings, news } = data
 
   return (

@@ -1,7 +1,8 @@
 'use client'
 import { useEffect } from 'react'
 
-export default function GlobalError({
+/** Catches client-side errors within the root layout. */
+export default function Error({
   error,
   reset,
 }: {
@@ -9,36 +10,27 @@ export default function GlobalError({
   reset: () => void
 }) {
   useEffect(() => {
-    console.error('[GlobalError]', error)
+    console.error('[ClientError]', error?.message, error?.stack)
   }, [error])
 
   return (
-    <html lang="ar" dir="rtl">
-      <body style={{ margin: 0, fontFamily: 'Arial', background: '#f1f4f8', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-        <div style={{ background: '#fff', borderRadius: 16, padding: 32, maxWidth: 600, width: '90%', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
-          <h1 style={{ color: '#0b2135', marginBottom: 8 }}>حدث خطأ</h1>
-          <p style={{ color: '#5d7a99', marginBottom: 16, fontSize: 14 }}>
-            {error?.message || 'خطأ غير معروف'}
-          </p>
-          {error?.digest && (
-            <p style={{ color: '#aaa', fontSize: 12, marginBottom: 16 }}>
-              Digest: {error.digest}
-            </p>
-          )}
-          <details style={{ marginBottom: 16, fontSize: 12, color: '#666' }}>
-            <summary style={{ cursor: 'pointer', marginBottom: 8 }}>تفاصيل الخطأ</summary>
-            <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', background: '#f8f9fa', padding: 12, borderRadius: 8 }}>
-              {error?.stack || 'لا توجد تفاصيل'}
-            </pre>
-          </details>
-          <button
-            onClick={reset}
-            style={{ background: '#0b2135', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', cursor: 'pointer', fontSize: 14 }}
-          >
-            إعادة المحاولة
-          </button>
-        </div>
-      </body>
-    </html>
+    <div style={{ padding: 32, fontFamily: 'Arial', direction: 'rtl', maxWidth: 600, margin: '40px auto' }}>
+      <h2 style={{ color: '#0b2135', marginBottom: 12 }}>حدث خطأ في التطبيق</h2>
+      <p style={{ color: '#c00', background: '#fff0f0', padding: '12px 16px', borderRadius: 8, fontSize: 14 }}>
+        {error?.message || 'خطأ غير معروف'}
+      </p>
+      {error?.digest && (
+        <p style={{ color: '#888', fontSize: 12, marginTop: 8 }}>Digest: {error.digest}</p>
+      )}
+      <details style={{ marginTop: 16, fontSize: 12, color: '#555' }}>
+        <summary style={{ cursor: 'pointer' }}>تفاصيل (Stack Trace)</summary>
+        <pre style={{ whiteSpace: 'pre-wrap', background: '#f5f5f5', padding: 12, borderRadius: 8, marginTop: 8, overflow: 'auto' }}>
+          {error?.stack}
+        </pre>
+      </details>
+      <button onClick={reset} style={{ marginTop: 20, padding: '10px 24px', background: '#0b2135', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}>
+        إعادة المحاولة
+      </button>
+    </div>
   )
 }
