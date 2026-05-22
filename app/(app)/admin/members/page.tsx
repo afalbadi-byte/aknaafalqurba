@@ -138,7 +138,7 @@ export default function Members() {
                         <div>
                           <div className="flex items-center gap-1.5">
                             <span className="font-bold text-brand-950 dark:text-brand-50">{m.full_name}</span>
-                            {m.id_verified && <BadgeCheck size={14} className="text-emerald-500 shrink-0" title="تم التحقق من الهوية" />}
+                            {m.id_verified && <span title="تم التحقق من الهوية"><BadgeCheck size={14} className="text-emerald-500 shrink-0" /></span>}
                           </div>
                           {m.national_id && (
                             <div className="text-xs text-brand-400 dark:text-brand-500 font-mono">{m.national_id}</div>
