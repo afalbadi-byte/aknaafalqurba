@@ -31,8 +31,7 @@ function Login() {
     setBusy(true); setError('')
     try {
       await api.auth.login(identifier, password)
-      router.push(next)
-      router.refresh()
+      window.location.href = next
     } catch (err: any) {
       setError(err.message)
     } finally {
