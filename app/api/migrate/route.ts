@@ -158,5 +158,5 @@ export async function POST(req: NextRequest) {
   if (errors.length) {
     return jsonError('migration_error', 'بعض المهاجرات فشلت', 500, { applied: appliedUniq, skipped, errors })
   }
-  return jsonOK({ message: 'تم تطبيق المهاجرات بنجاح', applied: appliedUniq, skipped })
+  return jsonOK({ message: 'تم تطبيق المهاجرات بنجاح', applied: appliedUniq, skipped, errors: [] })
 }

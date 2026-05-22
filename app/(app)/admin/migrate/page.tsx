@@ -80,9 +80,9 @@ export default function MigratePage() {
         {result && (
           <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4 space-y-2">
             <p className="font-bold text-emerald-700 dark:text-emerald-300">✅ تم تطبيق المهاجرات</p>
-            {result.applied.length > 0 && <p className="text-sm text-emerald-700 dark:text-emerald-300">مُطبَّقة: {result.applied.join('، ')}</p>}
-            {result.skipped.length > 0 && <p className="text-sm text-brand-600 dark:text-brand-400">متخطاة: {result.skipped.join('، ')}</p>}
-            {result.errors.length > 0 && (
+            {(result.applied?.length ?? 0) > 0 && <p className="text-sm text-emerald-700 dark:text-emerald-300">مُطبَّقة: {result.applied.join('، ')}</p>}
+            {(result.skipped?.length ?? 0) > 0 && <p className="text-sm text-brand-600 dark:text-brand-400">متخطاة: {result.skipped.join('، ')}</p>}
+            {(result.errors?.length ?? 0) > 0 && (
               <div>
                 {result.errors.map(e => (
                   <p key={e.name} className="text-sm text-red-700 dark:text-red-300">{e.name}: {e.error}</p>
