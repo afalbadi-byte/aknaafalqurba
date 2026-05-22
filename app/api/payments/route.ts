@@ -9,23 +9,28 @@ export async function GET(req: NextRequest) {
   const { error } = await requireRole(TREASURY_ROLES)
   if (error) return error
   const status = new URL(req.url).searchParams.get('status')
-  const rows = status
-    ? await sql`
-        SELECT p.*, m.full_name, m.phone, r.full_name AS reviewer_name
-        FROM payments p
-        JOIN members m  ON m.id = p.member_id
-        LEFT JOIN members r ON r.id = p.reviewed_by
-        WHERE p.status = ${status}
-        ORDER BY p.created_at DESC LIMIT 500
-      `
-    : await sql`
-        SELECT p.*, m.full_name, m.phone, r.full_name AS reviewer_name
-        FROM payments p
-        JOIN members m  ON m.id = p.member_id
-        LEFT JOIN members r ON r.id = p.reviewed_by
-        ORDER BY p.created_at DESC LIMIT 500
-      `
-  return jsonOK({ payments: rows })
+  try {
+    const rows = status
+      ? await sql`
+          SELECT p.*, m.full_name, m.phone, r.full_name AS reviewer_name
+          FROM payments p
+          JOIN members m  ON m.id = p.member_id
+          LEFT JOIN members r ON r.id = p.reviewed_by
+          WHERE p.status = ${status}
+          ORDER BY p.created_at DESC LIMIT 500
+        `
+      : await sql`
+          SELECT p.*, m.full_name, m.phone, r.full_name AS reviewer_name
+          FROM payments p
+          JOIN members m  ON m.id = p.member_id
+          LEFT JOIN members r ON r.id = p.reviewed_by
+          ORDER BY p.created_at DESC LIMIT 500
+        `
+    return jsonOK({ payments: rows })
+  } catch (e: any) {
+    console.error('[GET /api/payments] DB error:', e?.message)
+    return jsonError('db_error', e?.message || 'خطأ في قاعدة البيانات', 500)
+  }
 }
 
 // POST: create (member self-service, multipart form)
