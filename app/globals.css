@@ -61,6 +61,11 @@
     pointer-events: none;
     z-index: 0;
   }
+  /* Dark mode: invert watermark so it glows on dark background */
+  .dark .with-watermark::before {
+    opacity: 0.06;
+    filter: invert(1) brightness(1.5);
+  }
   .with-watermark > * { position: relative; z-index: 1; }
 }
 

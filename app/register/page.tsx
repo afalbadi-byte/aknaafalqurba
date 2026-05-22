@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { UserPlus, Loader2, CheckCircle2 } from 'lucide-react'
 import { api } from '@/lib/api-client'
 import Logo from '@/components/logo'
+import DarkToggle from '@/components/dark-toggle'
 
 export default function Register() {
   const router = useRouter()
@@ -53,7 +54,8 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen with-watermark flex items-center justify-center p-4 py-10">
+    <div className="min-h-screen with-watermark flex items-center justify-center p-4 py-10 relative">
+      <div className="absolute top-4 left-4"><DarkToggle /></div>
       <div className="w-full max-w-2xl">
         <Link href="/" className="flex justify-center mb-6"><Logo size={56} /></Link>
         <div className="card">

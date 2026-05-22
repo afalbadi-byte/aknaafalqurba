@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { LogIn, Loader2 } from 'lucide-react'
 import { api } from '@/lib/api-client'
 import Logo from '@/components/logo'
+import DarkToggle from '@/components/dark-toggle'
 
 // Next.js 15 requires useSearchParams to live inside a Suspense boundary
 export default function LoginPage() {
@@ -40,7 +41,8 @@ function Login() {
   }
 
   return (
-    <div className="min-h-screen with-watermark flex items-center justify-center p-4">
+    <div className="min-h-screen with-watermark flex items-center justify-center p-4 relative">
+      <div className="absolute top-4 left-4"><DarkToggle /></div>
       <div className="w-full max-w-md">
         <Link href="/" className="flex justify-center mb-6"><Logo size={56} /></Link>
         <div className="card">
