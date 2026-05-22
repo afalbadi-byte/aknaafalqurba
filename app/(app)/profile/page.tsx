@@ -675,7 +675,7 @@ export default function Profile() {
                     <div className="text-xs text-brand-500 dark:text-brand-400">
                       {RELATION_LABELS[d.relation]}
                       {d.birth_date
-                        ? ` · ${new Date(d.birth_date + 'T00:00:00').toLocaleDateString('ar-SA-u-nu-latn', { year: 'numeric', month: 'short', day: 'numeric' })}`
+                        ? ` · ${new Date(String(d.birth_date).slice(0, 10) + 'T00:00:00').toLocaleDateString('ar-SA-u-nu-latn', { year: 'numeric', month: 'short', day: 'numeric' })}`
                         : d.birth_year ? ` · ${d.birth_year}` : ''}
                       {d.national_id ? <span className="block font-mono text-[11px] mt-0.5 text-brand-400">{d.national_id}</span> : null}
                     </div>
