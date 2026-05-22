@@ -56,18 +56,38 @@ export async function PUT(req: NextRequest) {
   for (const m of members) {
     if (!m.full_name?.trim() || !m.relation) continue
 
-    const notes = m.national_id ? `رقم الهوية: ${m.national_id}` : null
+    const birthDate = m.birth_date && /^\d{4}-\d{2}-\d{2}$/.test(m.birth_date)
+      ? m.birth_date
+      : null
+    // Derive birth_year from birth_date for backward compatibility
+    const birthYear = birthDate ? Number(birthDate.slice(0, 4)) : null
+    const notes     = m.national_id ? `رقم الهوية: ${m.national_id}` : null
 
-    await sql`
-      INSERT INTO family_dependents (member_id, full_name, relation, birth_year, notes)
-      VALUES (
-        ${user.id},
-        ${m.full_name.trim()},
-        ${m.relation},
-        ${m.birth_year ? Number(m.birth_year) : null},
-        ${notes}
-      )
-    `
+    try {
+      await sql`
+        INSERT INTO family_dependents (member_id, full_name, relation, birth_date, birth_year, notes)
+        VALUES (
+          ${user.id},
+          ${m.full_name.trim()},
+          ${m.relation},
+          ${birthDate},
+          ${birthYear},
+          ${notes}
+        )
+      `
+    } catch {
+      // Fallback: migration 013 (birth_date column) not yet applied
+      await sql`
+        INSERT INTO family_dependents (member_id, full_name, relation, birth_year, notes)
+        VALUES (
+          ${user.id},
+          ${m.full_name.trim()},
+          ${m.relation},
+          ${birthYear},
+          ${notes}
+        )
+      `
+    }
     saved++
   }
 

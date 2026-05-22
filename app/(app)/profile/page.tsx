@@ -14,7 +14,7 @@ export default function Profile() {
   const [busy, setBusy] = useState(false)
   const [msg,  setMsg]  = useState<any>(null)
   const [deps, setDeps] = useState<any[]>([])
-  const [newDep, setNewDep] = useState({ full_name: '', relation: 'son', birth_year: '' })
+  const [newDep, setNewDep] = useState({ full_name: '', relation: 'son', birth_date: '' })
 
   // Family register (سجل الأسرة) upload + AI extraction
   const famRegRef = useRef<HTMLInputElement>(null)
@@ -178,7 +178,7 @@ export default function Profile() {
     e.preventDefault()
     if (!newDep.full_name) return
     await api.members.addDependent(newDep)
-    setNewDep({ full_name: '', relation: 'son', birth_year: '' }); loadDeps()
+    setNewDep({ full_name: '', relation: 'son', birth_date: '' }); loadDeps()
   }
   async function delDep(id: number) {
     if (!confirm('حذف هذا الفرد؟')) return
@@ -622,11 +622,10 @@ export default function Profile() {
                       ))}
                     </select>
                     <input
-                      className="input !py-2 !text-sm w-24 text-center"
-                      type="number"
-                      placeholder="السنة"
-                      value={m.birth_year ?? ''}
-                      onChange={e => updateExtracted(m._key, 'birth_year', e.target.value)}
+                      className="input !py-2 !text-sm w-36"
+                      type="date"
+                      value={m.birth_date ?? ''}
+                      onChange={e => updateExtracted(m._key, 'birth_date', e.target.value)}
                     />
                     <button
                       onClick={() => removeExtracted(m._key)}
@@ -664,7 +663,12 @@ export default function Profile() {
                 <div key={d.id} className="bg-brand-50/60 dark:bg-brand-800/50 border border-brand-100 dark:border-brand-700 rounded-lg px-4 py-3 flex items-center justify-between">
                   <div>
                     <div className="font-semibold text-brand-950 dark:text-brand-50 text-sm">{d.full_name}</div>
-                    <div className="text-xs text-brand-500 dark:text-brand-400">{RELATION_LABELS[d.relation]}{d.birth_year ? ` · ${d.birth_year}` : ''}</div>
+                    <div className="text-xs text-brand-500 dark:text-brand-400">
+                      {RELATION_LABELS[d.relation]}
+                      {d.birth_date
+                        ? ` · ${new Date(d.birth_date + 'T00:00:00').toLocaleDateString('ar-SA-u-nu-latn', { year: 'numeric', month: 'short', day: 'numeric' })}`
+                        : d.birth_year ? ` · ${d.birth_year}` : ''}
+                    </div>
                   </div>
                   <button onClick={() => delDep(d.id)} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded p-1"><Trash2 size={16} /></button>
                 </div>
@@ -674,14 +678,18 @@ export default function Profile() {
 
           {/* Manual add form */}
           <form onSubmit={addDep} className="grid sm:grid-cols-4 gap-3">
-            <input className="input sm:col-span-2" placeholder="الاسم"
+            <input className="input sm:col-span-2" placeholder="الاسم الكامل"
               value={newDep.full_name} onChange={e => setNewDep({ ...newDep, full_name: e.target.value })} />
             <select className="input" value={newDep.relation}
               onChange={e => setNewDep({ ...newDep, relation: e.target.value })}>
               {Object.entries(RELATION_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
-            <input className="input" type="number" placeholder="سنة الميلاد"
-              value={newDep.birth_year} onChange={e => setNewDep({ ...newDep, birth_year: e.target.value })} />
+            <div>
+              <input className="input" type="date"
+                value={newDep.birth_date}
+                onChange={e => setNewDep({ ...newDep, birth_date: e.target.value })} />
+              <p className="text-[11px] text-brand-400 mt-0.5 pr-1">تاريخ الميلاد</p>
+            </div>
             <button className="btn-primary sm:col-span-4" type="submit">
               <UserPlus size={16} /> إضافة فرد يدوياً
             </button>

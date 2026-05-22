@@ -8,11 +8,18 @@
 export interface ExtractedMember {
   full_name:   string
   relation:    'spouse' | 'son' | 'daughter' | 'father' | 'mother' | 'other'
-  birth_year:  number | null
+  birth_date:  string | null   // ISO YYYY-MM-DD (Gregorian)
   national_id: string | null
 }
 
 const VALID_RELATIONS = ['spouse', 'son', 'daughter', 'father', 'mother', 'other'] as const
+
+/** Validate ISO date string YYYY-MM-DD */
+function isValidIsoDate(s: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false
+  const d = new Date(s)
+  return !isNaN(d.getTime()) && d.getFullYear() > 1900 && d.getFullYear() < 2100
+}
 
 export async function extractFamilyRegister(
   document: string, // base64 data URL (PDF or image)
@@ -57,26 +64,30 @@ export async function extractFamilyRegister(
             docBlock,
             {
               type: 'text',
-              text: `أنت نظام لاستخراج بيانات أفراد الأسرة من سجل الأسرة السعودي الرسمي (مستخرج من تطبيق توكلنا أو أبشر).
+              text: `أنت نظام لاستخراج بيانات أفراد الأسرة من سجل الأسرة السعودي الرسمي (من تطبيق توكلنا أو أبشر).
 
 استخرج جميع أفراد الأسرة من هذا المستند (لا تُدرج صاحب السجل نفسه).
 
 لكل فرد استخرج:
 - full_name: الاسم الكامل كما يظهر في الوثيقة
-- relation: صلة القرابة — يجب أن تكون إحدى القيم التالية بالضبط:
+- relation: صلة القرابة — إحدى القيم التالية بالضبط:
   "spouse"   ← زوج / زوجة
   "son"      ← ابن
   "daughter" ← ابنة
   "father"   ← أب
   "mother"   ← أم
   "other"    ← أي صلة أخرى (أخ، أخت، جد، جدة...)
-- birth_year: سنة الميلاد الميلادية (رقم صحيح مثل 2005)، أو null إذا لم تظهر
+- birth_date: تاريخ الميلاد الكامل بصيغة YYYY-MM-DD ميلادية.
+  ملاحظة: تطبيق توكلنا قد يعرض التاريخ بالهجري — قم بتحويله للميلادي.
+  مثال: إذا ظهر "15/03/1415 هـ" فالناتج "1994-08-21".
+  إذا ظهر اليوم والشهر فقط دون وضوح، اجعل اليوم والشهر 01.
+  إذا لم يظهر التاريخ على الإطلاق، أرجع null.
 - national_id: رقم الهوية الوطنية (10 أرقام بلا مسافات)، أو null إذا لم يظهر
 
 أجب بـ JSON array فقط بلا أي نص إضافي:
 [
-  {"full_name": "الاسم هنا", "relation": "son", "birth_year": 2005, "national_id": null},
-  {"full_name": "اسم آخر", "relation": "spouse", "birth_year": 1985, "national_id": "1234567890"}
+  {"full_name": "الاسم هنا", "relation": "son", "birth_date": "2005-03-14", "national_id": null},
+  {"full_name": "اسم آخر",  "relation": "spouse", "birth_date": "1985-07-01", "national_id": "1234567890"}
 ]
 
 إذا لم تجد أفراد أسرة في المستند، أجب بـ []`,
@@ -109,8 +120,8 @@ export async function extractFamilyRegister(
         relation:    (VALID_RELATIONS as readonly string[]).includes(m.relation)
                        ? m.relation as ExtractedMember['relation']
                        : 'other',
-        birth_year:  m.birth_year && Number.isFinite(Number(m.birth_year))
-                       ? Number(m.birth_year)
+        birth_date:  typeof m.birth_date === 'string' && isValidIsoDate(m.birth_date)
+                       ? m.birth_date
                        : null,
         national_id: typeof m.national_id === 'string'
                        ? m.national_id.replace(/\D/g, '') || null
