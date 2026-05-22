@@ -130,12 +130,12 @@ export default function AdminPayments() {
             )}
             {viewing.receipt_path && (
               <div>
-                <div className="text-xs font-bold text-brand-600 mb-2">صورة الإيصال</div>
+                <div className="text-xs font-bold text-brand-600 dark:text-brand-400 mb-2">صورة الإيصال</div>
                 <a href={viewing.receipt_path} target="_blank" rel="noreferrer">
                   {viewing.receipt_path.endsWith('.pdf')
-                    ? <div className="bg-brand-50 p-4 rounded-lg text-brand-700">📄 عرض PDF</div>
+                    ? <div className="bg-brand-50 dark:bg-brand-800 p-4 rounded-lg text-brand-700 dark:text-brand-300">📄 عرض PDF</div>
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    : <img src={viewing.receipt_path} alt="إيصال" className="max-h-80 mx-auto rounded-lg border border-brand-100" />
+                    : <img src={viewing.receipt_path} alt="إيصال" className="max-h-80 mx-auto rounded-lg border border-brand-100 dark:border-brand-700" />
                   }
                 </a>
               </div>

@@ -53,18 +53,18 @@ export default function Expenses() {
     <div className="max-w-7xl mx-auto space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-extrabold text-brand-950">المصروفات</h1>
-          <p className="text-brand-600 text-sm">إجمالي: <strong className="text-red-700">{formatMoney(total)}</strong></p>
+          <h1 className="font-display text-2xl font-extrabold text-brand-950 dark:text-brand-50">المصروفات</h1>
+          <p className="text-brand-600 dark:text-brand-400 text-sm">إجمالي: <strong className="text-red-700 dark:text-red-400">{formatMoney(total)}</strong></p>
         </div>
         <button onClick={() => setOpen(true)} className="btn-primary"><Plus size={16} /> مصروف جديد</button>
       </div>
 
       <div className="card overflow-hidden">
-        {loading && <div className="p-8 text-center text-brand-500">جاري التحميل...</div>}
+        {loading && <div className="p-8 text-center text-brand-500 dark:text-brand-400">جاري التحميل...</div>}
         {!loading && (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-brand-50 text-brand-700 text-xs">
+              <thead className="bg-brand-50 dark:bg-brand-800 text-brand-700 dark:text-brand-300 text-xs">
                 <tr>
                   <th className="text-right p-3 font-semibold">التاريخ</th>
                   <th className="text-right p-3 font-semibold">العنوان</th>
@@ -76,29 +76,29 @@ export default function Expenses() {
                   <th className="text-right p-3 font-semibold"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-brand-50">
+              <tbody className="divide-y divide-brand-50 dark:divide-brand-800">
                 {list.map(e => (
-                  <tr key={e.id} className="hover:bg-brand-50/30">
-                    <td className="p-3 text-brand-700">{formatDate(e.expense_date)}</td>
-                    <td className="p-3 font-semibold text-brand-950">{e.title}</td>
-                    <td className="p-3 text-brand-700">{e.category || '—'}</td>
-                    <td className="p-3 text-brand-700">{e.recipient || '—'}</td>
-                    <td className="p-3 font-bold text-red-700">{formatMoney(e.amount)}</td>
+                  <tr key={e.id} className="hover:bg-brand-50/30 dark:hover:bg-brand-800/40">
+                    <td className="p-3 text-brand-700 dark:text-brand-300">{formatDate(e.expense_date)}</td>
+                    <td className="p-3 font-semibold text-brand-950 dark:text-brand-50">{e.title}</td>
+                    <td className="p-3 text-brand-700 dark:text-brand-300">{e.category || '—'}</td>
+                    <td className="p-3 text-brand-700 dark:text-brand-300">{e.recipient || '—'}</td>
+                    <td className="p-3 font-bold text-red-700 dark:text-red-400">{formatMoney(e.amount)}</td>
                     <td className="p-3">
                       {e.attachment
-                        ? <a href={e.attachment} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">عرض</a>
-                        : <span className="text-brand-300">—</span>}
+                        ? <a href={e.attachment} target="_blank" rel="noreferrer" className="text-brand-600 dark:text-brand-400 hover:underline">عرض</a>
+                        : <span className="text-brand-300 dark:text-brand-600">—</span>}
                     </td>
-                    <td className="p-3 text-brand-600 text-xs">{e.creator_name}</td>
+                    <td className="p-3 text-brand-600 dark:text-brand-400 text-xs">{e.creator_name}</td>
                     <td className="p-3">
                       {isAdmin && (
-                        <button onClick={() => remove(e.id)} className="p-2 text-red-600 hover:bg-red-50 rounded"><Trash2 size={16} /></button>
+                        <button onClick={() => remove(e.id)} className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"><Trash2 size={16} /></button>
                       )}
                     </td>
                   </tr>
                 ))}
                 {list.length === 0 && (
-                  <tr><td colSpan={8} className="p-8 text-center text-brand-500">لا توجد مصروفات</td></tr>
+                  <tr><td colSpan={8} className="p-8 text-center text-brand-500 dark:text-brand-400">لا توجد مصروفات</td></tr>
                 )}
               </tbody>
             </table>
@@ -134,9 +134,9 @@ export default function Expenses() {
           </div>
           <div className="sm:col-span-2">
             <label className="label">مرفق</label>
-            <label className="flex items-center justify-center gap-2 border-2 border-dashed border-brand-200 rounded-lg py-4 cursor-pointer hover:bg-brand-50">
-              <Upload size={18} className="text-brand-500" />
-              <span className="text-sm text-brand-700">{file ? file.name : 'اضغط لاختيار ملف'}</span>
+            <label className="flex items-center justify-center gap-2 border-2 border-dashed border-brand-200 dark:border-brand-700 rounded-lg py-4 cursor-pointer hover:bg-brand-50 dark:hover:bg-brand-800">
+              <Upload size={18} className="text-brand-500 dark:text-brand-400" />
+              <span className="text-sm text-brand-700 dark:text-brand-300">{file ? file.name : 'اضغط لاختيار ملف'}</span>
               <input type="file" hidden onChange={e => setFile(e.target.files?.[0] || null)} />
             </label>
           </div>

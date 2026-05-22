@@ -18,8 +18,8 @@ export default function NewsList() {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div>
-        <h1 className="font-display text-2xl font-extrabold text-brand-950">أخبار العائلة</h1>
-        <p className="text-brand-600 text-sm">آخر الإعلانات والمناسبات</p>
+        <h1 className="font-display text-2xl font-extrabold text-brand-950 dark:text-brand-50">أخبار العائلة</h1>
+        <p className="text-brand-600 dark:text-brand-400 text-sm">آخر الإعلانات والمناسبات</p>
       </div>
       <div className="flex flex-wrap gap-2">
         <Chip label="الكل" active={!filter} on={() => setFilter('')} />
@@ -27,9 +27,9 @@ export default function NewsList() {
           <Chip key={k} label={v} active={filter === k} on={() => setFilter(k)} />
         ))}
       </div>
-      {loading && <div className="text-center text-brand-500 py-8">جاري التحميل...</div>}
+      {loading && <div className="text-center text-brand-500 dark:text-brand-400 py-8">جاري التحميل...</div>}
       {!loading && items.length === 0 && (
-        <div className="card card-body text-center text-brand-500 py-12">لا توجد أخبار في هذه الفئة</div>
+        <div className="card card-body text-center text-brand-500 dark:text-brand-400 py-12">لا توجد أخبار في هذه الفئة</div>
       )}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
         {items.map(n => (
@@ -37,16 +37,16 @@ export default function NewsList() {
             {n.cover_image
               /* eslint-disable-next-line @next/next/no-img-element */
               ? <img src={n.cover_image} alt={n.title} className="w-full h-44 object-cover" />
-              : <div className="w-full h-44 bg-gradient-to-br from-brand-100 to-brand-200" />
+              : <div className="w-full h-44 bg-gradient-to-br from-brand-100 to-brand-200 dark:from-brand-800 dark:to-brand-700" />
             }
             <div className="p-5">
               <div className="flex items-center gap-2 mb-2">
                 <span className="badge badge-info">{NEWS_CATEGORIES[n.category]}</span>
                 {n.is_pinned && <span className="badge badge-gold"><Pin size={12} /> مثبّت</span>}
               </div>
-              <h3 className="font-bold text-brand-950 mb-2 line-clamp-2 group-hover:text-brand-700">{n.title}</h3>
-              {n.summary && <p className="text-sm text-brand-600 line-clamp-2">{n.summary}</p>}
-              <div className="text-xs text-brand-400 mt-3">{formatDate(n.published_at)} · {n.author_name}</div>
+              <h3 className="font-bold text-brand-950 dark:text-brand-50 mb-2 line-clamp-2 group-hover:text-brand-700 dark:group-hover:text-brand-300">{n.title}</h3>
+              {n.summary && <p className="text-sm text-brand-600 dark:text-brand-400 line-clamp-2">{n.summary}</p>}
+              <div className="text-xs text-brand-400 dark:text-brand-500 mt-3">{formatDate(n.published_at)} · {n.author_name}</div>
             </div>
           </Link>
         ))}
@@ -58,7 +58,7 @@ function Chip({ label, active, on }: any) {
   return (
     <button onClick={on}
       className={`px-3.5 py-1.5 rounded-full text-sm font-semibold transition border ${
-        active ? 'bg-brand-950 text-white border-brand-950' : 'bg-white text-brand-700 border-brand-200 hover:bg-brand-50'
+        active ? 'bg-brand-950 text-white border-brand-950 dark:bg-gold-500 dark:text-brand-950 dark:border-gold-500' : 'bg-white dark:bg-brand-800 text-brand-700 dark:text-brand-300 border-brand-200 dark:border-brand-700 hover:bg-brand-50 dark:hover:bg-brand-700'
       }`}>{label}</button>
   )
 }

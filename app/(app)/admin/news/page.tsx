@@ -60,8 +60,8 @@ export default function AdminNews() {
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-extrabold text-brand-950">إدارة الأخبار</h1>
-          <p className="text-brand-600 text-sm">نشر إعلانات ومناسبات العائلة</p>
+          <h1 className="font-display text-2xl font-extrabold text-brand-950 dark:text-brand-50">إدارة الأخبار</h1>
+          <p className="text-brand-600 dark:text-brand-400 text-sm">نشر إعلانات ومناسبات العائلة</p>
         </div>
         <button onClick={openCreate} className="btn-primary"><Plus size={16} /> خبر جديد</button>
       </div>
@@ -79,9 +79,9 @@ export default function AdminNews() {
                 {n.is_pinned && <span className="badge badge-gold"><Pin size={12} /></span>}
                 {n.is_public && <span className="badge badge-approved"><Globe size={12} /> عام</span>}
               </div>
-              <h3 className="font-bold text-brand-950 line-clamp-2 mb-1">{n.title}</h3>
-              {n.summary && <p className="text-sm text-brand-600 line-clamp-2 mb-2">{n.summary}</p>}
-              <div className="text-xs text-brand-400 mb-3">{formatDate(n.published_at)}</div>
+              <h3 className="font-bold text-brand-950 dark:text-brand-50 line-clamp-2 mb-1">{n.title}</h3>
+              {n.summary && <p className="text-sm text-brand-600 dark:text-brand-400 line-clamp-2 mb-2">{n.summary}</p>}
+              <div className="text-xs text-brand-400 dark:text-brand-500 mb-3">{formatDate(n.published_at)}</div>
               <div className="flex gap-2">
                 <button onClick={() => openEdit(n)} className="btn-secondary flex-1 !py-1.5 text-xs"><Edit3 size={14} /> تعديل</button>
                 {isAdmin && (
@@ -92,7 +92,7 @@ export default function AdminNews() {
           </div>
         ))}
         {list.length === 0 && (
-          <div className="md:col-span-2 lg:col-span-3 card card-body text-center text-brand-500">لا توجد أخبار</div>
+          <div className="md:col-span-2 lg:col-span-3 card card-body text-center text-brand-500 dark:text-brand-400">لا توجد أخبار</div>
         )}
       </div>
 
@@ -127,9 +127,9 @@ export default function AdminNews() {
             </div>
             <div className="sm:col-span-2">
               <label className="label">صورة الغلاف</label>
-              <label className="flex items-center justify-center gap-2 border-2 border-dashed border-brand-200 rounded-lg py-4 cursor-pointer hover:bg-brand-50">
-                <Upload size={18} className="text-brand-500" />
-                <span className="text-sm text-brand-700">{file ? file.name : 'اضغط لاختيار صورة'}</span>
+              <label className="flex items-center justify-center gap-2 border-2 border-dashed border-brand-200 dark:border-brand-700 rounded-lg py-4 cursor-pointer hover:bg-brand-50 dark:hover:bg-brand-800">
+                <Upload size={18} className="text-brand-500 dark:text-brand-400" />
+                <span className="text-sm text-brand-700 dark:text-brand-300">{file ? file.name : 'اضغط لاختيار صورة'}</span>
                 <input type="file" hidden accept="image/*" onChange={e => setFile(e.target.files?.[0] || null)} />
               </label>
             </div>
