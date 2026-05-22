@@ -88,7 +88,7 @@ export default function Payments() {
                     <td className="p-3 text-brand-600 dark:text-brand-400 font-mono text-xs">{p.reference || '—'}</td>
                     <td className="p-3">
                       {p.receipt_path
-                        ? <a href={p.receipt_path} target="_blank" rel="noreferrer" className="text-brand-600 dark:text-brand-400 hover:underline">عرض</a>
+                        ? <a href={p.receipt_path} download={`receipt-${p.id}.jpg`} className="text-brand-600 dark:text-brand-400 hover:underline">⬇ تحميل</a>
                         : <span className="text-brand-300 dark:text-brand-600">—</span>}
                     </td>
                     <td className="p-3"><span className={statusBadge(p.status)}>{STATUS_LABELS[p.status]}</span></td>
