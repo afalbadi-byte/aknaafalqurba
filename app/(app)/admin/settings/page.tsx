@@ -56,6 +56,8 @@ export default function Settings() {
   const [msg,  setMsg]  = useState<any>(null)
   const licFileRef = useRef<HTMLInputElement>(null)
   const [licBusy, setLicBusy] = useState(false)
+  const regDocRef = useRef<HTMLInputElement>(null)
+  const [regDocBusy, setRegDocBusy] = useState(false)
 
   useEffect(() => {
     api.settings.all().then(r => setData(r.settings || {}))
@@ -110,6 +112,18 @@ export default function Settings() {
       set('license_image', dataUrl)
     } catch (err: any) { alert(err.message) }
     finally { setLicBusy(false); if (licFileRef.current) licFileRef.current.value = '' }
+  }
+
+  async function handleRegDocUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 20 * 1024 * 1024) { alert('حجم الملف يجب أن يكون أقل من ٢٠ ميجابايت'); return }
+    setRegDocBusy(true)
+    try {
+      const dataUrl = await readAsDataUrl(file)
+      set('regulations_doc', dataUrl)
+    } catch (err: any) { alert(err.message) }
+    finally { setRegDocBusy(false); if (regDocRef.current) regDocRef.current.value = '' }
   }
 
   async function save() {
@@ -184,16 +198,64 @@ export default function Settings() {
       {/* Regulations */}
       <div className="card">
         <div className="px-6 py-3 border-b border-brand-100 dark:border-brand-800">
-          <h3 className="font-bold text-brand-950 dark:text-brand-50">اللائحة الخاصة بالعائلة</h3>
+          <h3 className="font-bold text-brand-950 dark:text-brand-50">لائحة الصندوق</h3>
         </div>
-        <div className="p-6">
-          <textarea
-            className="input w-full"
-            rows={8}
-            value={data.regulations || ''}
-            onChange={e => set('regulations', e.target.value)}
-            placeholder="أدخل نص اللائحة الخاصة بالعائلة..."
-          />
+        <div className="p-6 space-y-5">
+          {/* PDF upload */}
+          <div className="space-y-3">
+            <p className="text-sm font-semibold text-brand-800 dark:text-brand-200">رفع اللائحة كملف PDF</p>
+            {data.regulations_doc ? (
+              <div className="space-y-3">
+                <embed
+                  src={data.regulations_doc}
+                  type="application/pdf"
+                  className="w-full rounded-xl border border-brand-200 dark:border-brand-700"
+                  style={{ height: 480 }}
+                />
+                <div className="flex items-center gap-3">
+                  <button type="button" onClick={() => regDocRef.current?.click()} disabled={regDocBusy} className="btn-secondary">
+                    {regDocBusy ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />}
+                    استبدال الملف
+                  </button>
+                  <button type="button" onClick={() => set('regulations_doc', '')} className="text-sm text-red-500 hover:underline">
+                    حذف الملف
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <button type="button" onClick={() => regDocRef.current?.click()} disabled={regDocBusy}
+                  className="flex items-center gap-2 border-2 border-dashed border-brand-200 dark:border-brand-700 hover:border-gold-400 hover:bg-brand-50 dark:hover:bg-brand-800 transition rounded-xl px-6 py-4 text-sm text-brand-600 dark:text-brand-400 font-semibold">
+                  {regDocBusy ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
+                  رفع ملف PDF للائحة
+                </button>
+                <p className="text-xs text-brand-400 dark:text-brand-500">PDF — حتى ٢٠ ميجابايت</p>
+              </div>
+            )}
+            <input ref={regDocRef} type="file" accept="application/pdf,.pdf" hidden onChange={handleRegDocUpload} />
+          </div>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 border-t border-brand-100 dark:border-brand-800" />
+            <span className="text-xs text-brand-400 dark:text-brand-500">أو</span>
+            <div className="flex-1 border-t border-brand-100 dark:border-brand-800" />
+          </div>
+
+          {/* Plain text fallback */}
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-brand-800 dark:text-brand-200">نص اللائحة (اختياري)</p>
+            <textarea
+              className="input w-full"
+              rows={6}
+              value={data.regulations || ''}
+              onChange={e => set('regulations', e.target.value)}
+              placeholder="أو أدخل نص اللائحة مباشرة هنا..."
+            />
+            <p className="text-xs text-brand-400 dark:text-brand-500">
+              إذا رفعت PDF أعلاه فسيُعرض بدلاً من النص في صفحة «من نحن»
+            </p>
+          </div>
         </div>
       </div>
 

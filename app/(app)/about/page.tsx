@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { api } from '@/lib/api-client'
 import {
   Shield, Phone, Mail, Hash, CalendarDays, BookOpen, Users,
-  HandHeart, TrendingUp, FileText, Download, ChevronDown, ChevronUp,
+  HandHeart, TrendingUp, Download, ChevronDown, ChevronUp,
   Award, Heart, Scale, Eye,
 } from 'lucide-react'
 
@@ -201,21 +201,42 @@ export default function AboutPage() {
       )}
 
       {/* ─── Regulations ─── */}
-      {s.regulations && (
+      {(s.regulations_doc || s.regulations) && (
         <div className="card overflow-hidden">
-          <div className="px-6 py-4 border-b border-brand-100 dark:border-brand-800 flex items-center gap-2">
-            <BookOpen size={18} className="text-brand-400" />
-            <h2 className="font-bold text-brand-950 dark:text-brand-50">لائحة الصندوق</h2>
-          </div>
-          <div className="p-6 space-y-3">
-            {regSections.length > 0 ? (
-              regSections.map((sec, i) => <RegSection key={i} section={sec} idx={i} />)
-            ) : (
-              <div className="bg-brand-50 dark:bg-brand-800/50 rounded-xl p-5 text-sm text-brand-700 dark:text-brand-300 leading-loose whitespace-pre-line">
-                {s.regulations}
-              </div>
+          <div className="px-6 py-4 border-b border-brand-100 dark:border-brand-800 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <BookOpen size={18} className="text-brand-400" />
+              <h2 className="font-bold text-brand-950 dark:text-brand-50">لائحة الصندوق</h2>
+            </div>
+            {s.regulations_doc && (
+              <a href={s.regulations_doc} download="regulations.pdf" className="btn-secondary text-xs !py-1.5">
+                <Download size={14} /> تحميل PDF
+              </a>
             )}
           </div>
+
+          {s.regulations_doc ? (
+            /* ── PDF embed ── */
+            <div className="p-6 bg-brand-50/40 dark:bg-brand-900/40">
+              <embed
+                src={s.regulations_doc}
+                type="application/pdf"
+                className="w-full rounded-xl border border-brand-200 dark:border-brand-700"
+                style={{ height: 700 }}
+              />
+            </div>
+          ) : (
+            /* ── Text fallback ── */
+            <div className="p-6 space-y-3">
+              {regSections.length > 0 ? (
+                regSections.map((sec, i) => <RegSection key={i} section={sec} idx={i} />)
+              ) : (
+                <div className="bg-brand-50 dark:bg-brand-800/50 rounded-xl p-5 text-sm text-brand-700 dark:text-brand-300 leading-loose whitespace-pre-line">
+                  {s.regulations}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -266,7 +287,7 @@ export default function AboutPage() {
       )}
 
       {/* ─── Empty state ─── */}
-      {!s.license_image && !s.regulations && !s.about && !s.phone && (
+      {!s.license_image && !s.regulations && !s.regulations_doc && !s.about && !s.phone && (
         <div className="card card-body text-center text-brand-500 dark:text-brand-400 py-12">
           <Eye size={32} className="mx-auto mb-3 text-brand-300 dark:text-brand-600" />
           <p className="font-semibold mb-1">لم يتم إضافة محتوى التعريف بعد</p>
