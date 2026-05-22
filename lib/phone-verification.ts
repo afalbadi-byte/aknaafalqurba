@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs'
 import { sql } from './db'
 import { sendSms, hasSmsProvider } from './sms'
+import { sendWhatsAppOtp, hasWhatsAppProvider } from './whatsapp'
 import { sendEmail } from './email'
 
 const CODE_LIFETIME_MIN = 10
@@ -55,16 +56,21 @@ export async function startPhoneVerification(
     VALUES (${member_id}, ${phone}, ${hash}, ${purpose}, ${expires})
   `
 
-  // ── Delivery ──────────────────────────────────────────────────────────────
+  // ── Delivery — priority: SMS → WhatsApp → Email ────────────────────────
+  // 1. Paid SMS provider (Msegat / Unifonic)
   if (hasSmsProvider()) {
-    const message =
-      `رمز التحقق لصندوق أكناف القربى: ${code}\n` +
-      `صالح لمدة ${CODE_LIFETIME_MIN} دقائق. لا تشاركه مع أحد.`
-    await sendSms(phone, message)
+    const msg = `رمز التحقق لصندوق أكناف القربى: ${code}\nصالح لمدة ${CODE_LIFETIME_MIN} دقائق. لا تشاركه مع أحد.`
+    await sendSms(phone, msg)
     return { ok: true, via: 'sms' }
   }
 
-  // No SMS provider — fall back to email delivery
+  // 2. WhatsApp Cloud API (Meta) — free, recommended
+  if (hasWhatsAppProvider()) {
+    const sent = await sendWhatsAppOtp(phone, code)
+    if (sent) return { ok: true, via: 'whatsapp' }
+  }
+
+  // 3. Email fallback — not a real phone verify, but better than nothing
   if (fallbackEmail) {
     const body = `
       <p>لتفعيل رقم جوالك <strong dir="ltr">${phone}</strong> في صندوق أكناف القربى، استخدم الرمز التالي:</p>
@@ -88,7 +94,7 @@ export async function startPhoneVerification(
     return { ok: true, via: 'email' }
   }
 
-  // Absolute last resort: server console (dev/local)
+  // Dev / no config — print to server console
   console.log(`\n📱 [PHONE-OTP] ${phone} → ${code}\n`)
   return { ok: true, via: 'sms' }
 }

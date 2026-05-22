@@ -179,7 +179,7 @@ export default function Profile() {
   const [phoneBusy,    setPhoneBusy]    = useState(false)
   const [phoneMsg,     setPhoneMsg]     = useState<any>(null)
   const [phoneCooldown, setPhoneCooldown] = useState(0)
-  const [phoneVia,     setPhoneVia]     = useState<'sms' | 'email' | null>(null)
+  const [phoneVia,     setPhoneVia]     = useState<'sms' | 'whatsapp' | 'email' | null>(null)
   const [phoneViaEmail, setPhoneViaEmail] = useState('')
 
   // countdown timer for resend cooldown
@@ -196,9 +196,10 @@ export default function Profile() {
       setPhoneStep('code')
       setPhoneVia(r.via ?? 'sms')
       setPhoneViaEmail(r.email ?? '')
-      setPhoneMsg({ ok: true, text: r.via === 'email'
-        ? `تم إرسال الرمز إلى بريدك الإلكتروني ${r.email ?? ''}`
-        : 'تم إرسال الرمز إلى جوالك' })
+      setPhoneMsg({ ok: true, text:
+        r.via === 'whatsapp' ? 'تم إرسال الرمز عبر واتساب إلى جوالك' :
+        r.via === 'email'    ? `تم إرسال الرمز إلى بريدك ${r.email ?? ''}` :
+                               'تم إرسال الرمز عبر SMS إلى جوالك' })
       setPhoneCooldown(60)
     } catch (err: any) {
       if (err.code === 'otp_cooldown') {
@@ -540,9 +541,11 @@ export default function Profile() {
                   <form onSubmit={confirmPhoneOtp} className="space-y-3">
                     <div className="text-xs bg-brand-50 dark:bg-brand-800/60 text-brand-600 dark:text-brand-400 rounded px-3 py-2">
                       <ShieldCheck size={13} className="inline ml-1" />
-                      {phoneVia === 'email'
-                        ? <>أرسلنا الرمز إلى بريدك <strong>{phoneViaEmail}</strong> (لا يوجد حساب SMS بعد)</>
-                        : <>أرسلنا رمزاً إلى جوالك <strong dir="ltr">{user.phone}</strong></>}
+                      {phoneVia === 'whatsapp'
+                        ? <>أرسلنا الرمز عبر <strong>واتساب</strong> إلى <span dir="ltr">{user.phone}</span></>
+                        : phoneVia === 'email'
+                        ? <>أرسلنا الرمز إلى بريدك <strong>{phoneViaEmail}</strong></>
+                        : <>أرسلنا الرمز عبر SMS إلى <span dir="ltr">{user.phone}</span></>}
                     </div>
                     <input
                       className="input text-center text-2xl font-bold tracking-widest font-mono"
