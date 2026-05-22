@@ -121,6 +121,10 @@ const MIGRATIONS: { name: string; up: string }[] = [
          ON members(national_id) WHERE national_id IS NOT NULL;`,
   },
   {
+    name: '017-payments-ai-extracted',
+    up: `ALTER TABLE payments ADD COLUMN IF NOT EXISTS ai_extracted JSONB;`,
+  },
+  {
     name: '008-activity-logs',
     up: `
       CREATE TABLE IF NOT EXISTS activity_logs (
@@ -231,6 +235,13 @@ export async function GET() {
             WHERE tablename = 'members' AND indexname = 'idx_members_national_id_unique'
           `
           return { name: m.name, status: idx ? 'applied' : 'pending' }
+        }
+        if (m.name.startsWith('017')) {
+          const [col] = await sql`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'payments' AND column_name = 'ai_extracted'
+          `
+          return { name: m.name, status: col ? 'applied' : 'pending' }
         }
         if (m.name.startsWith('008')) {
           const [tbl] = await sql`

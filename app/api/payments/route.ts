@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
       ? await sql`
           SELECT p.id, p.member_id, p.amount, p.currency, p.payment_type, p.method,
                  p.reference, p.receipt_path, p.status, p.period_year, p.period_month,
-                 p.notes, p.created_at,
+                 p.notes, p.ai_extracted, p.created_at,
                  m.full_name, m.phone
           FROM payments p
           JOIN members m ON m.id = p.member_id
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
       : await sql`
           SELECT p.id, p.member_id, p.amount, p.currency, p.payment_type, p.method,
                  p.reference, p.receipt_path, p.status, p.period_year, p.period_month,
-                 p.notes, p.created_at,
+                 p.notes, p.ai_extracted, p.created_at,
                  m.full_name, m.phone
           FROM payments p
           JOIN members m ON m.id = p.member_id
@@ -59,9 +59,16 @@ export async function POST(req: NextRequest) {
   if ((method === 'bank_transfer' || method === 'stc_pay') && !receipt)
     return jsonError('receipt_required', 'يرجى إرفاق صورة الإيصال', 400)
 
+  // Parse AI-extracted data if provided (sent by client after receipt scan)
+  let aiExtracted: object | null = null
+  const aiRaw = fd.get('ai_extracted') as string | null
+  if (aiRaw) {
+    try { aiExtracted = JSON.parse(aiRaw) } catch { /* ignore malformed */ }
+  }
+
   const [ins] = await sql<{ id: number }[]>`
     INSERT INTO payments (member_id, amount, currency, payment_type, method,
-                          reference, receipt_path, status, period_year, period_month, notes)
+                          reference, receipt_path, status, period_year, period_month, notes, ai_extracted)
     VALUES (
       ${user.id}, ${amount}, 'SAR',
       ${String(fd.get('payment_type') || 'subscription')},
@@ -71,7 +78,8 @@ export async function POST(req: NextRequest) {
       ${method === 'gateway' ? 'approved' : 'pending'},
       ${fd.get('period_year')  ? Number(fd.get('period_year'))  : null},
       ${fd.get('period_month') ? Number(fd.get('period_month')) : null},
-      ${(fd.get('notes') as string) || null}
+      ${(fd.get('notes') as string) || null},
+      ${aiExtracted ? JSON.stringify(aiExtracted) : null}
     )
     RETURNING id
   `

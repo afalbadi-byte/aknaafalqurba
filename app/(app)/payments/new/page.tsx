@@ -1,10 +1,13 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api-client'
 import { PAYMENT_TYPES } from '@/lib/utils'
-import { Building2, Smartphone, CreditCard, Copy, Check, Upload, Loader2, ArrowRight } from 'lucide-react'
+import {
+  Building2, Smartphone, CreditCard, Copy, Check,
+  Upload, Loader2, ArrowRight, Sparkles, CheckCircle2, AlertCircle,
+} from 'lucide-react'
 
 export default function PaymentNew() {
   const router = useRouter()
@@ -14,10 +17,14 @@ export default function PaymentNew() {
     amount: '', payment_type: 'subscription', reference: '', notes: '',
     period_year: new Date().getFullYear(), period_month: new Date().getMonth() + 1,
   })
-  const [file, setFile] = useState<File | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const [copied, setCopied] = useState('')
+  const [file,        setFile]        = useState<File | null>(null)
+  const [fileDataUrl, setFileDataUrl] = useState<string | null>(null)
+  const [extracting,  setExtracting]  = useState(false)
+  const [extracted,   setExtracted]   = useState<any>(null)
+  const [extractErr,  setExtractErr]  = useState('')
+  const [busy,        setBusy]        = useState(false)
+  const [error,       setError]       = useState('')
+  const [copied,      setCopied]      = useState('')
 
   useEffect(() => {
     api.settings.publicGet().then(r => {
@@ -31,6 +38,54 @@ export default function PaymentNew() {
   function copy(text: string, key: string) {
     navigator.clipboard.writeText(text)
     setCopied(key); setTimeout(() => setCopied(''), 2000)
+  }
+
+  // Read file as base64 data URL, then call AI extraction
+  async function handleReceiptFile(f: File) {
+    setFile(f)
+    setExtracted(null)
+    setExtractErr('')
+
+    // Only extract for bank_transfer and stc_pay
+    const reader = new FileReader()
+    reader.onload = async (e) => {
+      const dataUrl = e.target?.result as string
+      setFileDataUrl(dataUrl)
+
+      // Only call AI for image/PDF receipts
+      if (!dataUrl.startsWith('data:image/') && !dataUrl.startsWith('data:application/pdf')) return
+
+      setExtracting(true)
+      try {
+        const res = await fetch('/api/payments/extract-receipt', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ receipt: dataUrl }),
+        })
+        const json = await res.json()
+        if (!res.ok) { setExtractErr('تعذّر الاستخراج الذكي — أدخل البيانات يدوياً'); return }
+
+        const ext = json.extracted
+        setExtracted(ext)
+
+        // Pre-fill form fields with extracted data
+        setForm((prev: any) => ({
+          ...prev,
+          ...(ext.amount    ? { amount:    String(ext.amount)    } : {}),
+          ...(ext.reference ? { reference: ext.reference         } : {}),
+          ...(ext.transfer_date ? {
+            notes: prev.notes
+              ? prev.notes
+              : `تاريخ التحويل: ${ext.transfer_date}${ext.bank_name ? ` — ${ext.bank_name}` : ''}`,
+          } : {}),
+        }))
+      } catch {
+        setExtractErr('تعذّر الاستخراج الذكي — أدخل البيانات يدوياً')
+      } finally {
+        setExtracting(false)
+      }
+    }
+    reader.readAsDataURL(f)
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -55,6 +110,8 @@ export default function PaymentNew() {
       if (form.period_year)  fd.append('period_year',  String(form.period_year))
       if (form.period_month) fd.append('period_month', String(form.period_month))
       if (file)              fd.append('receipt', file)
+      // Attach AI-extracted data for admin review
+      if (extracted)         fd.append('ai_extracted', JSON.stringify(extracted))
       await api.payments.create(fd)
       router.push('/payments')
     } catch (err: any) { setError(err.message) }
@@ -87,7 +144,7 @@ export default function PaymentNew() {
           <KV k="البنك"      v={settings.bank_name} />
           <KV k="IBAN" v={settings.bank_iban} copyKey="iban" copied={copied} onCopy={copy} mono />
           <div className="mt-3 text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700/50 rounded-lg px-3 py-2">
-            بعد التحويل، ارفع صورة الإيصال أدناه. لن تُحتسب الدفعة حتى يعتمدها أمين الصندوق.
+            بعد التحويل، ارفع صورة الإيصال أدناه. سيستخرج النظام البيانات آلياً وتراجعها لجنة الصندوق.
           </div>
         </div>
       )}
@@ -98,7 +155,7 @@ export default function PaymentNew() {
           <KV k="الاسم" v={settings.bank_account_name} />
           <KV k="رقم STC Pay" v={settings.stc_pay_number} copyKey="stc" copied={copied} onCopy={copy} mono />
           <div className="mt-3 text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700/50 rounded-lg px-3 py-2">
-            بعد التحويل، ارفع صورة الإيصال للاعتماد.
+            بعد التحويل، ارفع صورة الإيصال وسيُستخرج المبلغ ورقم العملية آلياً.
           </div>
         </div>
       )}
@@ -122,9 +179,73 @@ export default function PaymentNew() {
       )}
 
       <form onSubmit={onSubmit} className="card card-body space-y-4">
+
+        {/* Receipt upload first for bank_transfer / stc_pay — drives AI extraction */}
+        {requiresReceipt && (
+          <div>
+            <label className="label">إيصال التحويل *</label>
+            <label className={`flex items-center justify-center gap-2 border-2 border-dashed rounded-lg py-6 cursor-pointer transition ${
+              file
+                ? 'border-emerald-300 dark:border-emerald-600 bg-emerald-50/30 dark:bg-emerald-900/20'
+                : 'border-brand-200 dark:border-brand-700 hover:bg-brand-50 dark:hover:bg-brand-800/50'
+            }`}>
+              {extracting ? (
+                <>
+                  <Loader2 className="animate-spin text-brand-500" size={20} />
+                  <span className="text-sm text-brand-700 dark:text-brand-300">جاري استخراج البيانات بالذكاء الاصطناعي…</span>
+                </>
+              ) : file ? (
+                <>
+                  <CheckCircle2 className="text-emerald-600 dark:text-emerald-400" size={20} />
+                  <span className="text-sm text-brand-700 dark:text-brand-300">{file.name}</span>
+                </>
+              ) : (
+                <>
+                  <Upload className="text-brand-400 dark:text-brand-500" size={20} />
+                  <span className="text-sm text-brand-700 dark:text-brand-300">اضغط لرفع صورة الإيصال (JPG / PNG / PDF)</span>
+                </>
+              )}
+              <input
+                type="file" hidden accept="image/*,application/pdf"
+                required={requiresReceipt}
+                onChange={e => {
+                  const f = e.target.files?.[0]
+                  if (f) handleReceiptFile(f)
+                }}
+              />
+            </label>
+
+            {/* AI extraction result banner */}
+            {extracted && !extracting && (
+              <div className="mt-3 rounded-xl border border-emerald-200 dark:border-emerald-700/60 bg-emerald-50/60 dark:bg-emerald-900/20 px-4 py-3 space-y-1">
+                <div className="flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300 font-bold text-xs mb-2">
+                  <Sparkles size={13} />
+                  تم استخراج البيانات من الإيصال تلقائياً — راجع وعدّل إن احتجت
+                </div>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-emerald-900 dark:text-emerald-200">
+                  {extracted.amount        && <span>المبلغ: <strong>{extracted.amount} ر.س</strong></span>}
+                  {extracted.reference     && <span>رقم العملية: <strong className="font-mono">{extracted.reference}</strong></span>}
+                  {extracted.transfer_date && <span>تاريخ التحويل: <strong>{extracted.transfer_date}</strong></span>}
+                  {extracted.bank_name     && <span>الجهة: <strong>{extracted.bank_name}</strong></span>}
+                  {extracted.sender_name   && <span>المُرسِل: <strong>{extracted.sender_name}</strong></span>}
+                </div>
+              </div>
+            )}
+
+            {extractErr && (
+              <div className="mt-2 flex items-center gap-1.5 text-amber-700 dark:text-amber-400 text-xs">
+                <AlertCircle size={13} /> {extractErr}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
-            <label className="label">المبلغ (ر.س) *</label>
+            <label className="label">
+              المبلغ (ر.س) *
+              {extracted?.amount && <span className="text-emerald-600 dark:text-emerald-400 mr-1 text-xs font-normal">(مُستخرج)</span>}
+            </label>
             <input className="input" type="number" min="1" step="0.01" required
               value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
           </div>
@@ -148,8 +269,11 @@ export default function PaymentNew() {
             </select>
           </div>
           <div className="sm:col-span-2">
-            <label className="label">رقم المرجع / العملية</label>
-            <input className="input" placeholder="REF12345"
+            <label className="label">
+              رقم المرجع / العملية
+              {extracted?.reference && <span className="text-emerald-600 dark:text-emerald-400 mr-1 text-xs font-normal">(مُستخرج)</span>}
+            </label>
+            <input className="input font-mono" placeholder="REF12345"
               value={form.reference} onChange={e => setForm({ ...form, reference: e.target.value })} />
           </div>
           <div className="sm:col-span-2">
@@ -157,22 +281,14 @@ export default function PaymentNew() {
             <textarea className="input" rows={3}
               value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
           </div>
-          {requiresReceipt && (
-            <div className="sm:col-span-2">
-              <label className="label">إيصال التحويل *</label>
-              <label className="flex items-center justify-center gap-2 border-2 border-dashed border-brand-200 dark:border-brand-700 rounded-lg py-6 cursor-pointer hover:bg-brand-50 dark:hover:bg-brand-800/50 transition">
-                <Upload className="text-brand-400 dark:text-brand-500" size={20} />
-                <span className="text-sm text-brand-700 dark:text-brand-300">{file ? file.name : 'اضغط لرفع صورة الإيصال (JPG / PNG / PDF)'}</span>
-                <input type="file" hidden accept="image/*,application/pdf"
-                  onChange={e => setFile(e.target.files?.[0] || null)} required={requiresReceipt} />
-              </label>
-            </div>
-          )}
         </div>
+
         {error && <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm rounded-lg px-4 py-3">{error}</div>}
-        <button type="submit" disabled={busy || (method === 'gateway' && !gatewayReady)} className="btn-primary w-full !py-3">
+        <button type="submit" disabled={busy || extracting || (method === 'gateway' && !gatewayReady)} className="btn-primary w-full !py-3">
           {busy && <Loader2 className="animate-spin" size={18} />}
-          {method === 'gateway' ? (gatewayReady ? 'الانتقال إلى صفحة الدفع' : 'بوابة الدفع غير مفعّلة بعد') : 'إرسال الدفعة'}
+          {method === 'gateway'
+            ? (gatewayReady ? 'الانتقال إلى صفحة الدفع' : 'بوابة الدفع غير مفعّلة بعد')
+            : 'إرسال الدفعة'}
         </button>
       </form>
     </div>

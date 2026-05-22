@@ -6,7 +6,7 @@ import {
   formatMoney, formatDate, statusBadge, STATUS_LABELS,
   PAYMENT_METHODS, PAYMENT_TYPES,
 } from '@/lib/utils'
-import { CheckCircle, XCircle, Eye, Trash2 } from 'lucide-react'
+import { CheckCircle, XCircle, Eye, Trash2, Sparkles } from 'lucide-react'
 import Modal from '@/components/modal'
 
 export default function AdminPayments() {
@@ -137,6 +137,29 @@ export default function AdminPayments() {
               <KV k="الفترة" v={viewing.period_year ? `${viewing.period_month}/${viewing.period_year}` : '—'} />
               <KV k="التاريخ" v={formatDate(viewing.created_at, true)} />
             </div>
+            {/* AI-extracted receipt data */}
+            {viewing.ai_extracted && (() => {
+              const ai = typeof viewing.ai_extracted === 'string'
+                ? (() => { try { return JSON.parse(viewing.ai_extracted) } catch { return null } })()
+                : viewing.ai_extracted
+              if (!ai) return null
+              return (
+                <div className="rounded-xl border border-emerald-200 dark:border-emerald-700/60 bg-emerald-50/60 dark:bg-emerald-900/20 px-4 py-3">
+                  <div className="flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300 font-bold text-xs mb-2">
+                    <Sparkles size={13} />
+                    بيانات مستخرجة من الإيصال بالذكاء الاصطناعي
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-emerald-900 dark:text-emerald-200">
+                    {ai.amount        != null && <span>المبلغ المستخرج: <strong>{ai.amount} ر.س</strong></span>}
+                    {ai.reference          && <span>رقم العملية: <strong className="font-mono">{ai.reference}</strong></span>}
+                    {ai.transfer_date      && <span>تاريخ التحويل: <strong>{ai.transfer_date}</strong></span>}
+                    {ai.bank_name          && <span>الجهة: <strong>{ai.bank_name}</strong></span>}
+                    {ai.sender_name        && <span>المُرسِل: <strong>{ai.sender_name}</strong></span>}
+                  </div>
+                </div>
+              )
+            })()}
+
             {viewing.notes && (
               <div className="bg-brand-50/50 dark:bg-brand-800/50 rounded-lg p-3">
                 <div className="text-xs font-bold text-brand-600 dark:text-brand-400 mb-1">ملاحظات العضو</div>
