@@ -32,18 +32,18 @@ export default function AidNew() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
-        <Link href="/aid" className="text-sm text-brand-600 hover:text-brand-950 flex items-center gap-1 mb-2">
+        <Link href="/aid" className="text-sm text-brand-600 dark:text-brand-400 hover:text-brand-950 dark:hover:text-brand-50 flex items-center gap-1 mb-2">
           <ArrowRight size={14} /> العودة لطلباتي
         </Link>
-        <h1 className="font-display text-2xl font-extrabold text-brand-950">طلب معونة جديد</h1>
-        <p className="text-brand-600 text-sm">سيتم استلام طلبك ومراجعته من قبل لجنة المعونات</p>
+        <h1 className="font-display text-2xl font-extrabold text-brand-950 dark:text-brand-50">طلب معونة جديد</h1>
+        <p className="text-brand-600 dark:text-brand-400 text-sm">سيتم استلام طلبك ومراجعته من قبل لجنة المعونات</p>
       </div>
 
-      <div className="card card-body bg-gold-50/40 border-gold-200">
+      <div className="card card-body bg-gold-50/40 dark:bg-gold-900/20 border border-gold-200 dark:border-gold-800">
         <div className="flex items-start gap-3">
-          <Lock className="text-gold-700 shrink-0 mt-0.5" size={18} />
-          <div className="text-sm text-brand-800">
-            <strong className="text-gold-800">سرية تامة:</strong> لا يطّلع على هذا الطلب سوى أعضاء لجنة المعونات.
+          <Lock className="text-gold-700 dark:text-gold-400 shrink-0 mt-0.5" size={18} />
+          <div className="text-sm text-brand-800 dark:text-brand-200">
+            <strong className="text-gold-800 dark:text-gold-400">سرية تامة:</strong> لا يطّلع على هذا الطلب سوى أعضاء لجنة المعونات.
           </div>
         </div>
       </div>
@@ -85,15 +85,15 @@ export default function AidNew() {
           </div>
           <div className="sm:col-span-2">
             <label className="label">مرفق داعم (اختياري)</label>
-            <label className="flex items-center justify-center gap-2 border-2 border-dashed border-brand-200 rounded-lg py-6 cursor-pointer hover:bg-brand-50 transition">
-              <Upload className="text-brand-500" size={20} />
-              <span className="text-sm text-brand-700">{file ? file.name : 'تقرير طبي / وثيقة / صورة'}</span>
+            <label className="flex items-center justify-center gap-2 border-2 border-dashed border-brand-200 dark:border-brand-700 rounded-lg py-6 cursor-pointer hover:bg-brand-50 dark:hover:bg-brand-800/50 transition">
+              <Upload className="text-brand-400 dark:text-brand-500" size={20} />
+              <span className="text-sm text-brand-700 dark:text-brand-300">{file ? file.name : 'تقرير طبي / وثيقة / صورة'}</span>
               <input type="file" hidden accept="image/*,application/pdf"
                 onChange={e => setFile(e.target.files?.[0] || null)} />
             </label>
           </div>
         </div>
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">{error}</div>}
+        {error && <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm rounded-lg px-4 py-3">{error}</div>}
         <button className="btn-primary w-full !py-3" type="submit" disabled={busy}>
           {busy && <Loader2 className="animate-spin" size={18} />} تقديم الطلب
         </button>

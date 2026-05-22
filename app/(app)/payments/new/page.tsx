@@ -67,11 +67,11 @@ export default function PaymentNew() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
-        <Link href="/payments" className="text-sm text-brand-600 hover:text-brand-950 flex items-center gap-1 mb-2">
+        <Link href="/payments" className="text-sm text-brand-600 dark:text-brand-400 hover:text-brand-950 dark:hover:text-brand-50 flex items-center gap-1 mb-2">
           <ArrowRight size={14} /> العودة لدفعاتي
         </Link>
-        <h1 className="font-display text-2xl font-extrabold text-brand-950">دفعة جديدة</h1>
-        <p className="text-brand-600 text-sm">سدّد اشتراكك أو أضف تبرعاً للصندوق</p>
+        <h1 className="font-display text-2xl font-extrabold text-brand-950 dark:text-brand-50">دفعة جديدة</h1>
+        <p className="text-brand-600 dark:text-brand-400 text-sm">سدّد اشتراكك أو أضف تبرعاً للصندوق</p>
       </div>
 
       <div className="grid sm:grid-cols-3 gap-3">
@@ -81,40 +81,42 @@ export default function PaymentNew() {
       </div>
 
       {method === 'bank_transfer' && (
-        <div className="card card-body bg-brand-50/40">
-          <h3 className="font-bold text-brand-950 mb-3">بيانات التحويل البنكي</h3>
+        <div className="card card-body bg-brand-50/40 dark:bg-brand-800/30">
+          <h3 className="font-bold text-brand-950 dark:text-brand-50 mb-3">بيانات التحويل البنكي</h3>
           <KV k="اسم الحساب" v={settings.bank_account_name} copyKey="acc" copied={copied} onCopy={copy} />
           <KV k="البنك"      v={settings.bank_name} />
           <KV k="IBAN" v={settings.bank_iban} copyKey="iban" copied={copied} onCopy={copy} mono />
-          <div className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          <div className="mt-3 text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700/50 rounded-lg px-3 py-2">
             بعد التحويل، ارفع صورة الإيصال أدناه. لن تُحتسب الدفعة حتى يعتمدها أمين الصندوق.
           </div>
         </div>
       )}
 
       {method === 'stc_pay' && (
-        <div className="card card-body bg-brand-50/40">
-          <h3 className="font-bold text-brand-950 mb-3">تحويل عبر STC Pay</h3>
+        <div className="card card-body bg-brand-50/40 dark:bg-brand-800/30">
+          <h3 className="font-bold text-brand-950 dark:text-brand-50 mb-3">تحويل عبر STC Pay</h3>
           <KV k="الاسم" v={settings.bank_account_name} />
           <KV k="رقم STC Pay" v={settings.stc_pay_number} copyKey="stc" copied={copied} onCopy={copy} mono />
-          <div className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          <div className="mt-3 text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700/50 rounded-lg px-3 py-2">
             بعد التحويل، ارفع صورة الإيصال للاعتماد.
           </div>
         </div>
       )}
 
       {method === 'gateway' && (
-        <div className={`card card-body ${gatewayReady ? 'bg-emerald-50/40 border border-emerald-200' : 'bg-gold-50/40 border border-gold-200'}`}>
-          <h3 className="font-bold text-brand-950 mb-2">الدفع المباشر بالبطاقة</h3>
+        <div className={`card card-body ${gatewayReady
+          ? 'bg-emerald-50/40 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800'
+          : 'bg-gold-50/40 dark:bg-gold-900/20 border border-gold-200 dark:border-gold-800'}`}>
+          <h3 className="font-bold text-brand-950 dark:text-brand-50 mb-2">الدفع المباشر بالبطاقة</h3>
           {gatewayReady ? (
             <>
-              <p className="text-sm text-brand-700 mb-2">
+              <p className="text-sm text-brand-700 dark:text-brand-300 mb-2">
                 ادفع مباشرة باستخدام <strong>مدى</strong> أو <strong>فيزا/ماستركارد</strong> أو <strong>Apple Pay</strong> عبر بوابة آمنة.
               </p>
-              <p className="text-xs text-brand-600">يتحمّل الصندوق رسوم البوابة — أنت تدفع المبلغ كاملاً بدون أي زيادة.</p>
+              <p className="text-xs text-brand-600 dark:text-brand-400">يتحمّل الصندوق رسوم البوابة — أنت تدفع المبلغ كاملاً بدون أي زيادة.</p>
             </>
           ) : (
-            <p className="text-sm text-brand-700">سيتم تفعيل الدفع المباشر بالبطاقة بعد إتمام التسجيل التجاري. مؤقتاً اختر التحويل البنكي أو STC Pay.</p>
+            <p className="text-sm text-brand-700 dark:text-brand-300">سيتم تفعيل الدفع المباشر بالبطاقة بعد إتمام التسجيل التجاري. مؤقتاً اختر التحويل البنكي أو STC Pay.</p>
           )}
         </div>
       )}
@@ -158,16 +160,16 @@ export default function PaymentNew() {
           {requiresReceipt && (
             <div className="sm:col-span-2">
               <label className="label">إيصال التحويل *</label>
-              <label className="flex items-center justify-center gap-2 border-2 border-dashed border-brand-200 rounded-lg py-6 cursor-pointer hover:bg-brand-50 transition">
-                <Upload className="text-brand-500" size={20} />
-                <span className="text-sm text-brand-700">{file ? file.name : 'اضغط لرفع صورة الإيصال (JPG / PNG / PDF)'}</span>
+              <label className="flex items-center justify-center gap-2 border-2 border-dashed border-brand-200 dark:border-brand-700 rounded-lg py-6 cursor-pointer hover:bg-brand-50 dark:hover:bg-brand-800/50 transition">
+                <Upload className="text-brand-400 dark:text-brand-500" size={20} />
+                <span className="text-sm text-brand-700 dark:text-brand-300">{file ? file.name : 'اضغط لرفع صورة الإيصال (JPG / PNG / PDF)'}</span>
                 <input type="file" hidden accept="image/*,application/pdf"
                   onChange={e => setFile(e.target.files?.[0] || null)} required={requiresReceipt} />
               </label>
             </div>
           )}
         </div>
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">{error}</div>}
+        {error && <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm rounded-lg px-4 py-3">{error}</div>}
         <button type="submit" disabled={busy || (method === 'gateway' && !gatewayReady)} className="btn-primary w-full !py-3">
           {busy && <Loader2 className="animate-spin" size={18} />}
           {method === 'gateway' ? (gatewayReady ? 'الانتقال إلى صفحة الدفع' : 'بوابة الدفع غير مفعّلة بعد') : 'إرسال الدفعة'}
@@ -181,25 +183,33 @@ function MethodBtn({ icon: Icon, label, v, cur, on }: any) {
   const active = v === cur
   return (
     <button type="button" onClick={() => on(v)}
-      className={`card card-body !p-4 flex items-center gap-3 transition ${active ? 'ring-2 ring-gold-400 bg-brand-50/50' : 'hover:bg-brand-50/30'}`}>
-      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${active ? 'bg-brand-950 text-white' : 'bg-brand-100 text-brand-700'}`}>
+      className={`card card-body !p-4 flex items-center gap-3 transition ${
+        active
+          ? 'ring-2 ring-gold-400 bg-brand-50/50 dark:bg-brand-800/50'
+          : 'hover:bg-brand-50/30 dark:hover:bg-brand-800/30'
+      }`}>
+      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+        active
+          ? 'bg-brand-950 dark:bg-gold-500 text-white dark:text-brand-950'
+          : 'bg-brand-100 dark:bg-brand-700 text-brand-700 dark:text-brand-300'
+      }`}>
         <Icon size={20} />
       </div>
-      <span className="font-semibold text-brand-950 text-sm">{label}</span>
+      <span className="font-semibold text-brand-950 dark:text-brand-50 text-sm">{label}</span>
     </button>
   )
 }
 
 function KV({ k, v, copyKey, copied, onCopy, mono }: any) {
   return (
-    <div className="flex items-center justify-between py-2 border-b border-brand-100/60 last:border-0">
-      <span className="text-xs text-brand-600 font-semibold">{k}</span>
+    <div className="flex items-center justify-between py-2 border-b border-brand-100/60 dark:border-brand-700/60 last:border-0">
+      <span className="text-xs text-brand-600 dark:text-brand-400 font-semibold">{k}</span>
       <div className="flex items-center gap-2">
-        <span className={`text-sm font-bold text-brand-950 ${mono ? 'font-mono' : ''}`}>{v || '—'}</span>
+        <span className={`text-sm font-bold text-brand-950 dark:text-brand-50 ${mono ? 'font-mono' : ''}`}>{v || '—'}</span>
         {copyKey && v && (
           <button type="button" onClick={() => onCopy(v, copyKey)}
-            className="text-brand-500 hover:text-brand-700 p-1 rounded hover:bg-brand-100/60">
-            {copied === copyKey ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+            className="text-brand-500 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-200 p-1 rounded hover:bg-brand-100/60 dark:hover:bg-brand-700/60">
+            {copied === copyKey ? <Check size={14} className="text-emerald-600 dark:text-emerald-400" /> : <Copy size={14} />}
           </button>
         )}
       </div>
