@@ -61,8 +61,8 @@ const MIGRATIONS: { name: string; up: string }[] = [
   {
     name: '006-expense-attachment-text',
     up: `
-      ALTER TABLE expenses ALTER COLUMN attachment_path TYPE TEXT;
-      ALTER TABLE aid_requests ALTER COLUMN attachment_path TYPE TEXT;
+      ALTER TABLE expenses ALTER COLUMN attachment TYPE TEXT;
+      ALTER TABLE aid_requests ALTER COLUMN attachment TYPE TEXT;
     `,
   },
 ]
@@ -98,7 +98,7 @@ export async function GET() {
         if (m.name.startsWith('006')) {
           const [col] = await sql`
             SELECT data_type FROM information_schema.columns
-            WHERE table_name = 'expenses' AND column_name = 'attachment_path'
+            WHERE table_name = 'expenses' AND column_name = 'attachment'
           `
           return { name: m.name, status: col?.data_type === 'text' ? 'applied' : 'pending' }
         }
