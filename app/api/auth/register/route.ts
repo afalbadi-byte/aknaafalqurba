@@ -4,6 +4,7 @@ import { hashPassword, jsonOK, jsonError, parseJson, requireFields } from '@/lib
 import { notifyCommittee } from '@/lib/notify'
 import { startVerification } from '@/lib/verification'
 import { log, getIP } from '@/lib/log'
+import { verifyIdDocument } from '@/lib/ai-verify'
 
 export async function POST(req: NextRequest) {
   const body = await parseJson(req)
@@ -49,18 +50,37 @@ export async function POST(req: NextRequest) {
     )
     RETURNING id
   `
-  // Store id_document separately — requires migration 011; silently skip if column missing
+  // Store id_document — requires migration 011
+  let aiVerified = false
   if (body.id_document) {
     try {
       await sql`UPDATE members SET id_document = ${String(body.id_document)} WHERE id = ${ins.id}`
-    } catch { /* migration 011 not yet applied */ }
+
+      // ── AI verification: auto-activate if البادي confirmed ──────────────
+      const aiResult = await verifyIdDocument({
+        full_name:   String(body.full_name).trim(),
+        national_id: body.national_id || null,
+        id_document: String(body.id_document),
+      })
+      if (aiResult?.verified) {
+        await sql`
+          UPDATE members
+          SET id_verified = true, id_verified_at = NOW(), status = 'active'
+          WHERE id = ${ins.id}
+        `
+        aiVerified = true
+      }
+    } catch (e) {
+      console.error('[register] id_document/AI error:', (e as Error).message)
+    }
   }
 
-  void log(ins.id, 'auth.register', { ip: getIP(req), member_name: String(body.full_name).trim(), entity: 'member', entity_id: ins.id, details: { phone, email: body.email || null } })
-  await notifyCommittee('new_member', 'طلب عضوية جديد',
-    `${body.full_name} يطلب الانضمام للصندوق`, `/admin/members?id=${ins.id}`)
+  void log(ins.id, 'auth.register', { ip: getIP(req), member_name: String(body.full_name).trim(), entity: 'member', entity_id: ins.id, details: { phone, email: body.email || null, ai_verified: aiVerified } })
+  await notifyCommittee('new_member', aiVerified ? 'عضو جديد (تحقق ذكي ✓)' : 'طلب عضوية جديد',
+    `${body.full_name} ${aiVerified ? 'تم التحقق من هويته آلياً وتفعيل عضويته' : 'يطلب الانضمام للصندوق'}`,
+    `/admin/members?id=${ins.id}`)
 
-  // If the user supplied an email, fire a 6-digit verification code to it
+  // Email verification code
   let email_pending = false
   if (body.email) {
     try {
@@ -72,10 +92,13 @@ export async function POST(req: NextRequest) {
   }
 
   return jsonOK({
-    member_id: ins.id,
+    member_id:   ins.id,
     email_pending,
-    message: email_pending
-      ? 'تم استلام طلبك وأرسلنا رمز تأكيد إلى بريدك. سيتم تفعيل الحساب بعد مراجعة اللجنة.'
-      : 'تم استلام طلبك. سيتم تفعيل الحساب بعد مراجعة لجنة الصندوق.',
+    ai_verified: aiVerified,
+    message: aiVerified
+      ? 'تم التحقق من هويتك آلياً وتفعيل عضويتك! يمكنك الدخول الآن.'
+      : (email_pending
+          ? 'تم استلام طلبك وأرسلنا رمز تأكيد إلى بريدك. سيتم تفعيل الحساب بعد مراجعة اللجنة.'
+          : 'تم استلام طلبك. سيتم تفعيل الحساب بعد مراجعة لجنة الصندوق.'),
   })
 }

@@ -15,13 +15,15 @@ export async function GET(req: NextRequest) {
       ? await sql`
           SELECT id, full_name, national_id, phone, email, email_verified, branch, city,
                  role, status, avatar, created_at,
-                 (id_document IS NOT NULL) AS has_id_document
+                 (id_document IS NOT NULL) AS has_id_document,
+                 COALESCE(id_verified, false) AS id_verified
           FROM members WHERE status = ${status} ORDER BY created_at DESC
         `
       : await sql`
           SELECT id, full_name, national_id, phone, email, email_verified, branch, city,
                  role, status, avatar, created_at,
-                 (id_document IS NOT NULL) AS has_id_document
+                 (id_document IS NOT NULL) AS has_id_document,
+                 COALESCE(id_verified, false) AS id_verified
           FROM members ORDER BY created_at DESC
         `
   } catch {

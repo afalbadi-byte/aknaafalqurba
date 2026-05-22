@@ -27,6 +27,8 @@ export const api = {
   auth: {
     register:        (d: any)       => post('/api/auth/register', d),
     login:           (i: string, p: string) => post('/api/auth/login', { identifier: i, password: p }),
+    loginOtp:        (member_id: number, code: string) => post('/api/auth/login-otp', { member_id, code }),
+    loginOtpResend:  (member_id: number) => call('/api/auth/login-otp', { method: 'PUT', body: JSON.stringify({ member_id }), headers: { 'Content-Type': 'application/json' } }),
     logout:          ()             => post('/api/auth/logout'),
     me:              ()             => get('/api/auth/me'),
     changePassword:  (cur: string, n: string) =>
@@ -35,6 +37,7 @@ export const api = {
       post('/api/auth/verify-email', { member_id, code }),
     resendVerification: (member_id: number) =>
       post('/api/auth/resend-verification', { member_id }),
+    verifyId:        (member_id: number) => post('/api/auth/verify-id', { member_id }),
   },
   members: {
     list:         (status?: string) => get(`/api/members${status ? `?status=${status}` : ''}`),

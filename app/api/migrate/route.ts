@@ -101,6 +101,13 @@ const MIGRATIONS: { name: string; up: string }[] = [
     up: `ALTER TABLE members ADD COLUMN IF NOT EXISTS id_document TEXT;`,
   },
   {
+    name: '012-id-verified',
+    up: `
+      ALTER TABLE members ADD COLUMN IF NOT EXISTS id_verified     BOOLEAN     NOT NULL DEFAULT FALSE;
+      ALTER TABLE members ADD COLUMN IF NOT EXISTS id_verified_at  TIMESTAMPTZ;
+    `,
+  },
+  {
     name: '008-activity-logs',
     up: `
       CREATE TABLE IF NOT EXISTS activity_logs (
@@ -181,6 +188,13 @@ export async function GET() {
           const [col] = await sql`
             SELECT column_name FROM information_schema.columns
             WHERE table_name = 'members' AND column_name = 'id_document'
+          `
+          return { name: m.name, status: col ? 'applied' : 'pending' }
+        }
+        if (m.name.startsWith('012')) {
+          const [col] = await sql`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'members' AND column_name = 'id_verified'
           `
           return { name: m.name, status: col ? 'applied' : 'pending' }
         }

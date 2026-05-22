@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { api } from '@/lib/api-client'
 import { ROLE_LABELS, STATUS_LABELS, statusBadge, formatDate } from '@/lib/utils'
-import { CheckCircle, UserCog, Ban, ShieldCheck, Search, MailCheck, FileText, Loader2 } from 'lucide-react'
+import { CheckCircle, UserCog, Ban, ShieldCheck, Search, MailCheck, FileText, Loader2, BrainCircuit, BadgeCheck } from 'lucide-react'
 import Modal from '@/components/modal'
 import { Avatar } from '@/components/app-shell'
 
@@ -24,6 +24,10 @@ export default function Members() {
   const [docLoading, setDocLoading] = useState(false)
   const [docError,   setDocError]   = useState('')
 
+  // AI verification
+  const [aiVerifying, setAiVerifying] = useState<number | null>(null)
+  const [aiResult,    setAiResult]    = useState<any>(null)
+
   const isAdmin = user && TOP_ADMIN.includes(user.role)
 
   useEffect(() => { api.auth.me().then(r => setUser(r.user)) }, [])
@@ -42,6 +46,20 @@ export default function Members() {
   async function verifyEmail(id: number) {
     await api.members.verifyEmailAdmin(id)
     load()
+  }
+
+  async function runAiVerify(m: any) {
+    setAiVerifying(m.id)
+    setAiResult(null)
+    try {
+      const r = await api.auth.verifyId(m.id)
+      setAiResult({ member: m, ...r.result })
+      load() // refresh list to show updated status
+    } catch (e: any) {
+      setAiResult({ member: m, error: e.message })
+    } finally {
+      setAiVerifying(null)
+    }
   }
 
   async function openDoc(m: any) {
@@ -118,7 +136,10 @@ export default function Members() {
                       <div className="flex items-center gap-3">
                         <Avatar name={m.full_name} src={m.avatar} size={36} />
                         <div>
-                          <div className="font-bold text-brand-950 dark:text-brand-50">{m.full_name}</div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-brand-950 dark:text-brand-50">{m.full_name}</span>
+                            {m.id_verified && <BadgeCheck size={14} className="text-emerald-500 shrink-0" title="تم التحقق من الهوية" />}
+                          </div>
                           {m.national_id && (
                             <div className="text-xs text-brand-400 dark:text-brand-500 font-mono">{m.national_id}</div>
                           )}
@@ -166,6 +187,18 @@ export default function Members() {
                             <FileText size={16} />
                           </button>
                         )}
+                        {m.has_id_document && isAdmin && (
+                          <button
+                            onClick={() => runAiVerify(m)}
+                            disabled={aiVerifying === m.id}
+                            className="p-2 hover:bg-purple-50 dark:hover:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded disabled:opacity-40"
+                            title="تحقق بالذكاء الاصطناعي"
+                          >
+                            {aiVerifying === m.id
+                              ? <Loader2 size={16} className="animate-spin" />
+                              : <BrainCircuit size={16} />}
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -190,6 +223,45 @@ export default function Members() {
                     : 'border-brand-100 dark:border-brand-700 hover:bg-brand-50 dark:hover:bg-brand-800 text-brand-800 dark:text-brand-200'
                 }`}>{v}</button>
             ))}
+          </div>
+        )}
+      </Modal>
+
+      {/* AI verification result modal */}
+      <Modal open={!!aiResult} onClose={() => setAiResult(null)} title={`نتيجة التحقق الذكي: ${aiResult?.member?.full_name}`}>
+        {aiResult && (
+          <div className="space-y-3 text-sm">
+            {aiResult.error ? (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-400 rounded-lg px-4 py-3">{aiResult.error}</div>
+            ) : (
+              <>
+                <div className={`flex items-center gap-2 rounded-lg px-4 py-3 font-bold ${aiResult.verified ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400' : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'}`}>
+                  {aiResult.verified ? <BadgeCheck size={18} /> : <span>✗</span>}
+                  {aiResult.verified ? 'تم التحقق — البادي ✓ — رقم الهوية متطابق ✓' : 'لم يتحقق'}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-brand-50 dark:bg-brand-800 rounded-lg p-3">
+                    <div className="text-xs text-brand-500 mb-1">الاسم المستخرج</div>
+                    <div className="font-semibold text-brand-900 dark:text-brand-100">{aiResult.extracted_name || '—'}</div>
+                  </div>
+                  <div className="bg-brand-50 dark:bg-brand-800 rounded-lg p-3">
+                    <div className="text-xs text-brand-500 mb-1">رقم الهوية المستخرج</div>
+                    <div className="font-mono font-semibold text-brand-900 dark:text-brand-100">{aiResult.extracted_id || '—'}</div>
+                  </div>
+                  <div className={`rounded-lg p-3 ${aiResult.is_badi ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400' : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400'}`}>
+                    <div className="text-xs mb-1">عائلة البادي</div>
+                    <div className="font-bold">{aiResult.is_badi ? '✓ نعم' : '✗ لا'}</div>
+                  </div>
+                  <div className={`rounded-lg p-3 ${aiResult.id_matches ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400' : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400'}`}>
+                    <div className="text-xs mb-1">رقم الهوية</div>
+                    <div className="font-bold">{aiResult.id_matches ? '✓ متطابق' : '✗ غير متطابق'}</div>
+                  </div>
+                </div>
+                {aiResult.verified && (
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 text-center">تم تفعيل العضوية تلقائياً</p>
+                )}
+              </>
+            )}
           </div>
         )}
       </Modal>

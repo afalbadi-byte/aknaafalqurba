@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs'
 import { sql } from './db'
 import { sendEmail } from './email'
 
-const CODE_LIFETIME_MIN = 15
+const CODE_LIFETIME_MIN = 10
 const MAX_ATTEMPTS      = 5
 const RESEND_COOLDOWN_S = 60
 
@@ -21,7 +21,7 @@ function gen6(): string {
 export async function startVerification(
   member_id: number,
   email: string,
-  purpose: 'register' | 'change' = 'register',
+  purpose: 'register' | 'change' | 'login_otp' = 'register',
 ): Promise<{ ok: boolean; email_sent?: boolean; cooldown_seconds?: number }> {
   // Cool-down: don't allow spamming
   const [last] = await sql<{ created_at: string }[]>`
@@ -52,13 +52,15 @@ export async function startVerification(
     VALUES (${member_id}, ${email}, ${hash}, ${purpose}, ${expires})
   `
 
-  const subject = purpose === 'register'
-    ? 'رمز تأكيد البريد - صندوق أكناف القربى'
-    : 'رمز تأكيد البريد الجديد'
+  const subject =
+    purpose === 'register'  ? 'رمز تأكيد البريد - صندوق أكناف القربى' :
+    purpose === 'login_otp' ? 'رمز تأكيد الدخول - صندوق أكناف القربى' :
+                              'رمز تأكيد البريد الجديد'
 
-  const intro = purpose === 'register'
-    ? 'أهلاً بك في صندوق أكناف القربى. لإكمال طلب الانضمام، أكّد بريدك الإلكتروني باستخدام الرمز التالي:'
-    : 'لتأكيد بريدك الإلكتروني الجديد، استخدم الرمز التالي:'
+  const intro =
+    purpose === 'register'  ? 'أهلاً بك في صندوق أكناف القربى. لإكمال طلب الانضمام، أكّد بريدك الإلكتروني باستخدام الرمز التالي:' :
+    purpose === 'login_otp' ? 'تم طلب تسجيل الدخول لحسابك في صندوق أكناف القربى. استخدم الرمز التالي لإتمام الدخول:' :
+                              'لتأكيد بريدك الإلكتروني الجديد، استخدم الرمز التالي:'
 
   const html = `
     <p>${intro}</p>
@@ -86,7 +88,7 @@ export async function startVerification(
  * the code as used. On failure increments attempts.
  */
 export async function checkCode(
-  member_id: number, code: string, purpose: 'register' | 'change' = 'register',
+  member_id: number, code: string, purpose: 'register' | 'change' | 'login_otp' = 'register',
 ): Promise<{ ok: boolean; email?: string; reason?: string }> {
   const clean = code.replace(/\D/g, '')
   if (clean.length !== 6) return { ok: false, reason: 'الرمز يجب أن يكون ٦ أرقام' }
