@@ -33,12 +33,14 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
   const [m] = await sql`SELECT id, full_name, role FROM members WHERE id = ${id}`
   if (!m) return jsonError('not_found', 'العضو غير موجود', 404)
 
-  // Null-out FK references that don't have CASCADE
-  await sql`UPDATE payments    SET member_id = NULL WHERE member_id = ${id}`
-  await sql`UPDATE aid_requests SET member_id = NULL WHERE member_id = ${id}`
-  try { await sql`DELETE FROM notifications WHERE member_id = ${id}` } catch {}
+  // Reassign news & expenses authored by this member to the deleting admin
+  // (author_id / created_by are NOT NULL with RESTRICT — can't null them out)
+  await sql`UPDATE news     SET author_id  = ${user.id} WHERE author_id  = ${id}`
+  await sql`UPDATE expenses SET created_by = ${user.id} WHERE created_by = ${id}`
 
-  // Delete member — CASCADE handles: email_verifications, family_dependents, member_permissions
+  // Delete member — ON DELETE CASCADE handles:
+  //   sessions, notifications, email_verifications, family_dependents,
+  //   member_permissions, payments, aid_requests, aid_updates
   await sql`DELETE FROM members WHERE id = ${id}`
 
   void log(user.id, 'member.deleted', {
