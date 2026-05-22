@@ -28,7 +28,7 @@ export default function AdminHome() {
 
           <div className="grid md:grid-cols-3 gap-4">
             <Action to="/admin/payments?status=pending" icon={CreditCard} count={f.pending_payments} label="دفعات بانتظار المراجعة" color="amber" />
-            <Action to="/admin/aid?status=submitted"    icon={FileHeart}  count={f.aid_open}         label="طلبات معونة مفتوحة"     color="teal" />
+            <Action to="/admin/aid?status=submitted"    icon={FileHeart}  count={f.aid_open}         label="طلبات دعم مفتوحة"     color="teal" />
             <Action to="/admin/members?status=pending"  icon={Users}      count={f.members_pending}  label="طلبات عضوية بانتظار التفعيل" color="gold" />
           </div>
         </>

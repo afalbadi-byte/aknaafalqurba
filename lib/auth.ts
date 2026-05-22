@@ -35,7 +35,7 @@ export type Member = {
 export const PERMISSION_DEFS = [
   { key: 'payment.review',  label: 'مراجعة الدفعات',     desc: 'اعتماد أو رفض الدفعات' },
   { key: 'expense.manage',  label: 'إدارة المصروفات',     desc: 'إضافة وحذف المصروفات' },
-  { key: 'aid.review',      label: 'مراجعة المعونات',     desc: 'مراجعة طلبات المعونة وتغيير حالتها' },
+  { key: 'aid.review',      label: 'مراجعة الدعم',     desc: 'مراجعة طلبات الدعم وتغيير حالتها' },
   { key: 'news.publish',    label: 'نشر الأخبار',         desc: 'إضافة وتعديل وحذف الأخبار' },
   { key: 'report.view',     label: 'عرض التقارير',        desc: 'الوصول للتقارير المالية' },
   { key: 'member.view',     label: 'عرض قائمة الأعضاء',  desc: 'رؤية بيانات الأعضاء كاملة' },

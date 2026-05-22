@@ -24,7 +24,7 @@ export default function AdminAid() {
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       <div>
-        <h1 className="font-display text-2xl font-extrabold text-brand-950 dark:text-brand-50">طلبات المعونات</h1>
+        <h1 className="font-display text-2xl font-extrabold text-brand-950 dark:text-brand-50">طلبات الدعم</h1>
         <p className="text-brand-600 dark:text-brand-400 text-sm">مراجعة الطلبات ومتابعة حالاتها</p>
       </div>
 

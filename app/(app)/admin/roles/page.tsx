@@ -13,13 +13,13 @@ const PERMISSIONS: { label: string; section: string; roles: Role[] }[] = [
   // ── عضو عادي ──
   { section: 'الخدمات الأساسية', label: 'عرض الأخبار والإعلانات',  roles: ['member','aid_committee','treasurer','president','admin'] },
   { section: 'الخدمات الأساسية', label: 'تقديم دفعة اشتراك / تبرع', roles: ['member','aid_committee','treasurer','president','admin'] },
-  { section: 'الخدمات الأساسية', label: 'تقديم طلب معونة',          roles: ['member','aid_committee','treasurer','president','admin'] },
+  { section: 'الخدمات الأساسية', label: 'تقديم طلب دعم',          roles: ['member','aid_committee','treasurer','president','admin'] },
   { section: 'الخدمات الأساسية', label: 'إدارة الملف الشخصي',       roles: ['member','aid_committee','treasurer','president','admin'] },
   // ── لجنة ──
   { section: 'لوحة الإدارة',    label: 'الدخول للوحة الإدارة',      roles: ['aid_committee','treasurer','president','admin'] },
   { section: 'لوحة الإدارة',    label: 'عرض قائمة الأعضاء',         roles: ['aid_committee','treasurer','president','admin'] },
   { section: 'لوحة الإدارة',    label: 'نشر الأخبار وإدارتها',       roles: ['aid_committee','treasurer','president','admin'] },
-  { section: 'لوحة الإدارة',    label: 'مراجعة طلبات المعونات',      roles: ['aid_committee','president','admin'] },
+  { section: 'لوحة الإدارة',    label: 'مراجعة طلبات الدعم',      roles: ['aid_committee','president','admin'] },
   // ── أمين الصندوق ──
   { section: 'الصندوق',         label: 'مراجعة واعتماد الدفعات',     roles: ['treasurer','president','admin'] },
   { section: 'الصندوق',         label: 'إضافة مصروفات',             roles: ['treasurer','president','admin'] },
@@ -37,7 +37,7 @@ const PERMISSIONS: { label: string; section: string; roles: Role[] }[] = [
 const INDIVIDUAL_PERMS = [
   { key: 'payment.review', label: 'مراجعة الدفعات',    desc: 'اعتماد أو رفض الدفعات' },
   { key: 'expense.manage', label: 'إدارة المصروفات',    desc: 'إضافة وحذف المصروفات' },
-  { key: 'aid.review',     label: 'مراجعة المعونات',    desc: 'مراجعة طلبات المعونة وتغيير حالتها' },
+  { key: 'aid.review',     label: 'مراجعة الدعم',    desc: 'مراجعة طلبات الدعم وتغيير حالتها' },
   { key: 'news.publish',   label: 'نشر الأخبار',        desc: 'إضافة وتعديل وحذف الأخبار' },
   { key: 'report.view',    label: 'عرض التقارير',       desc: 'الوصول للتقارير المالية' },
   { key: 'member.view',    label: 'عرض قائمة الأعضاء', desc: 'رؤية بيانات الأعضاء كاملة' },
@@ -351,8 +351,8 @@ export default function RolesPage() {
         <h3 className="font-bold text-brand-950 dark:text-brand-50 text-sm mb-3">وصف الأدوار</h3>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
           {([
-            { role: 'member',        desc: 'يقدّم دفعاته ومعوناته ويتابع أخبار العائلة فقط' },
-            { role: 'aid_committee', desc: 'يراجع طلبات المعونات وينشر الأخبار بالإضافة لحقوق العضو' },
+            { role: 'member',        desc: 'يقدّم دفعاته وطلبات دعمه ويتابع أخبار العائلة فقط' },
+            { role: 'aid_committee', desc: 'يراجع طلبات الدعم وينشر الأخبار بالإضافة لحقوق العضو' },
             { role: 'treasurer',     desc: 'يتولى الدفعات والمصروفات والتقارير المالية' },
             { role: 'president',     desc: 'صلاحيات كاملة: يوافق على العضوية ويعيّن الأدوار ويدير الإعدادات' },
             { role: 'admin',         desc: 'مدير النظام التقني — صلاحيات كاملة وإضافية كالمهاجرات والسجل' },

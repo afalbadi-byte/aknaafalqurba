@@ -33,7 +33,7 @@ export function relativeTime(iso: string | null | undefined) {
 
 export const ROLE_LABELS: Record<string, string> = {
   member: 'عضو',
-  aid_committee: 'لجنة المعونات',
+  aid_committee: 'لجنة الدعم',
   treasurer: 'أمين الصندوق',
   president: 'رئيس الصندوق',
   admin: 'مدير النظام',

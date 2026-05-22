@@ -3,7 +3,7 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title:       'صندوق أكناف القربى | عائلة البادي',
-  description: 'منصة لإدارة صندوق العائلة: جمع الدفعات، متابعة الأخبار، وتقديم طلبات المعونات.',
+  description: 'منصة لإدارة صندوق العائلة: جمع الدفعات، متابعة الأخبار، وتقديم طلبات الدعم.',
   themeColor:  '#0b2135',
   icons: {
     icon:    [{ url: '/brand/favicon.png', type: 'image/png' }],
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title:       'صندوق أكناف القربى - عائلة البادي',
-    description: 'منصة عائلة البادي لجمع الدفعات ومتابعة الأخبار وطلبات المعونات',
+    description: 'منصة عائلة البادي لجمع الدفعات ومتابعة الأخبار وطلبات الدعم',
     images:      ['/brand/logo.png'],
     locale:      'ar_SA',
     type:        'website',

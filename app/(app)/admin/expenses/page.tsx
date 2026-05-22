@@ -122,7 +122,7 @@ export default function Expenses() {
           </div>
           <div>
             <label className="label">التصنيف</label>
-            <input className="input" placeholder="معونات، إدارية..." value={form.category} onChange={e => set('category', e.target.value)} />
+            <input className="input" placeholder="دعم، إدارية..." value={form.category} onChange={e => set('category', e.target.value)} />
           </div>
           <div>
             <label className="label">المستفيد</label>

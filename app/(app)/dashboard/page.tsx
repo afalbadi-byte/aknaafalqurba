@@ -115,7 +115,7 @@ export default function Dashboard() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Stat icon={Wallet}    label="إجمالي مدفوعاتك"      value={formatMoney(stats.personal.total_paid)} color="brand" />
           <Stat icon={Wallet}    label="بانتظار المراجعة"      value={stats.personal.pending_count} color="amber" />
-          <Stat icon={FileHeart} label="طلبات المعونات"        value={stats.personal.total_requests}
+          <Stat icon={FileHeart} label="طلبات الدعم"        value={stats.personal.total_requests}
                 sub={stats.personal.open_requests ? `${stats.personal.open_requests} مفتوحة` : null} color="gold" />
           <Stat icon={Bell}      label="إشعارات غير مقروءة"   value={stats.personal.unread_notifs} color="teal" />
         </div>

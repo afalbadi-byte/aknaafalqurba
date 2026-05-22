@@ -7,9 +7,9 @@ import { log, getIP } from '@/lib/log'
 const VALID  = ['submitted', 'under_review', 'approved', 'rejected', 'disbursed']
 const TITLES: Record<string, string> = {
   under_review: 'طلبك قيد المراجعة',
-  approved:     'تم اعتماد طلب المعونة',
-  rejected:     'تم رفض طلب المعونة',
-  disbursed:    'تم صرف المعونة',
+  approved:     'تم اعتماد طلب الدعم',
+  rejected:     'تم رفض طلب الدعم',
+  disbursed:    'تم صرف الدعم',
 }
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {

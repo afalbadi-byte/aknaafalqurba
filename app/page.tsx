@@ -66,7 +66,7 @@ export default async function LandingPage() {
             {settings.family_name || 'عائلة البادي'}
           </div>
           <p className="max-w-2xl mx-auto text-brand-700 dark:text-brand-300 text-base sm:text-lg leading-relaxed mb-8">
-            {settings.about || 'منصة متكاملة لجمع اشتراكات الصندوق، متابعة دفعاتك، أخبار العائلة، وتقديم طلبات المعونات بكل سهولة وشفافية.'}
+            {settings.about || 'منصة متكاملة لجمع اشتراكات الصندوق، متابعة دفعاتك، أخبار العائلة، وتقديم طلبات الدعم بكل سهولة وشفافية.'}
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
             <Link href="/register" className="btn-primary !px-6 !py-3 text-base">
@@ -88,7 +88,7 @@ export default async function LandingPage() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
           <Feature icon={CreditCard} title="جمع الدفعات" desc="ادفع اشتراكك عبر التحويل البنكي، STC Pay، أو بطاقتك. كل دفعاتك موثّقة." color="brand" />
           <Feature icon={Newspaper}  title="أخبار العائلة" desc="تابع آخر الإعلانات والاجتماعات والمناسبات في عائلتك." color="gold" />
-          <Feature icon={FileHeart}  title="طلبات المعونات" desc="قدّم طلب معونة بشكل سري وآمن، وتابع حالته خطوة بخطوة." color="teal" />
+          <Feature icon={FileHeart}  title="طلبات الدعم" desc="قدّم طلب دعم بشكل سري وآمن، وتابع حالته خطوة بخطوة." color="teal" />
           <Feature icon={TrendingUp} title="شفافية مالية" desc="تقارير دورية بإيرادات ومصروفات الصندوق متاحة للأعضاء." color="sand" />
         </div>
       </section>

@@ -35,15 +35,15 @@ export default function AidNew() {
         <Link href="/aid" className="text-sm text-brand-600 dark:text-brand-400 hover:text-brand-950 dark:hover:text-brand-50 flex items-center gap-1 mb-2">
           <ArrowRight size={14} /> العودة لطلباتي
         </Link>
-        <h1 className="font-display text-2xl font-extrabold text-brand-950 dark:text-brand-50">طلب معونة جديد</h1>
-        <p className="text-brand-600 dark:text-brand-400 text-sm">سيتم استلام طلبك ومراجعته من قبل لجنة المعونات</p>
+        <h1 className="font-display text-2xl font-extrabold text-brand-950 dark:text-brand-50">طلب دعم جديد</h1>
+        <p className="text-brand-600 dark:text-brand-400 text-sm">سيتم استلام طلبك ومراجعته من قبل لجنة الدعم</p>
       </div>
 
       <div className="card card-body bg-gold-50/40 dark:bg-gold-900/20 border border-gold-200 dark:border-gold-800">
         <div className="flex items-start gap-3">
           <Lock className="text-gold-700 dark:text-gold-400 shrink-0 mt-0.5" size={18} />
           <div className="text-sm text-brand-800 dark:text-brand-200">
-            <strong className="text-gold-800 dark:text-gold-400">سرية تامة:</strong> لا يطّلع على هذا الطلب سوى أعضاء لجنة المعونات.
+            <strong className="text-gold-800 dark:text-gold-400">سرية تامة:</strong> لا يطّلع على هذا الطلب سوى أعضاء لجنة الدعم.
           </div>
         </div>
       </div>
@@ -51,7 +51,7 @@ export default function AidNew() {
       <form onSubmit={onSubmit} className="card card-body space-y-4">
         <div className="grid sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2">
-            <label className="label">نوع المعونة *</label>
+            <label className="label">نوع الدعم *</label>
             <select className="input" value={form.aid_type} onChange={e => set('aid_type', e.target.value)} required>
               {Object.entries(AID_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>

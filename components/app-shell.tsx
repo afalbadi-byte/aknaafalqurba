@@ -22,7 +22,7 @@ type User = {
 const MEMBER_NAV = [
   { to: '/dashboard',  label: 'الرئيسية',         icon: LayoutDashboard },
   { to: '/payments',   label: 'دفعاتي',           icon: CreditCard },
-  { to: '/aid',        label: 'طلبات المعونات',   icon: FileHeart },
+  { to: '/aid',        label: 'طلبات الدعم',   icon: FileHeart },
   { to: '/news',       label: 'أخبار العائلة',    icon: Newspaper },
   { to: '/about',      label: 'من نحن',           icon: Info },
   { to: '/profile',    label: 'بياناتي',          icon: User },
@@ -31,7 +31,7 @@ const ADMIN_NAV = [
   { to: '/admin',           label: 'لوحة الإدارة',    icon: Shield },
   { to: '/admin/members',   label: 'الأعضاء',         icon: Users },
   { to: '/admin/payments',  label: 'مراجعة الدفعات',  icon: CreditCard },
-  { to: '/admin/aid',       label: 'طلبات المعونات',  icon: FileHeart },
+  { to: '/admin/aid',       label: 'طلبات الدعم',  icon: FileHeart },
   { to: '/admin/expenses',  label: 'المصروفات',       icon: Banknote },
   { to: '/admin/news',      label: 'إدارة الأخبار',   icon: Newspaper },
   { to: '/admin/reports',   label: 'التقارير المالية', icon: LayoutDashboard },

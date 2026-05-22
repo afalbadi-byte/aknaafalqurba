@@ -16,15 +16,15 @@ export default function AidList() {
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-extrabold text-brand-950 dark:text-brand-50">طلبات المعونات</h1>
+          <h1 className="font-display text-2xl font-extrabold text-brand-950 dark:text-brand-50">طلبات الدعم</h1>
           <p className="text-brand-600 dark:text-brand-400 text-sm">قدّم طلبك وتابع حالته خطوة بخطوة</p>
         </div>
-        <Link href="/aid/new" className="btn-primary"><Plus size={16} /> طلب معونة جديد</Link>
+        <Link href="/aid/new" className="btn-primary"><Plus size={16} /> طلب دعم جديد</Link>
       </div>
 
       <div className="card card-body bg-brand-50/40 dark:bg-brand-800/40 border-brand-200 dark:border-brand-700">
         <div className="text-sm text-brand-800 dark:text-brand-200 leading-relaxed">
-          <strong>تنبيه:</strong> كل طلبات المعونات تُعامَل بسرية تامة ولا يطّلع عليها سوى أعضاء لجنة المعونات.
+          <strong>تنبيه:</strong> كل طلبات الدعم تُعامَل بسرية تامة ولا يطّلع عليها سوى أعضاء لجنة الدعم.
         </div>
       </div>
 
@@ -32,7 +32,7 @@ export default function AidList() {
       {!loading && list.length === 0 && (
         <div className="card card-body text-center py-12">
           <FileHeart className="mx-auto mb-3 text-brand-300 dark:text-brand-600" size={40} />
-          <p className="text-brand-500 dark:text-brand-400 mb-4">لم تقدّم أي طلب معونة بعد</p>
+          <p className="text-brand-500 dark:text-brand-400 mb-4">لم تقدّم أي طلب دعم بعد</p>
           <Link href="/aid/new" className="btn-primary"><Plus size={16} /> تقديم طلب</Link>
         </div>
       )}

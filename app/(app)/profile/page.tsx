@@ -491,7 +491,7 @@ export default function Profile() {
       <div className="card">
         <div className="px-6 py-4 border-b border-brand-100 dark:border-brand-700">
           <h3 className="font-bold text-brand-950 dark:text-brand-50">أفراد عائلتي</h3>
-          <p className="text-xs text-brand-500 dark:text-brand-400 mt-0.5">يساعد ذلك لجنة المعونات على تقدير الحاجة</p>
+          <p className="text-xs text-brand-500 dark:text-brand-400 mt-0.5">يساعد ذلك لجنة الدعم على تقدير الحاجة</p>
         </div>
         <div className="p-6">
           {deps.length > 0 && (
