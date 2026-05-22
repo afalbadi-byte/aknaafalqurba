@@ -107,14 +107,18 @@ export async function extractIdDocument(id_document: string): Promise<ExtractedI
 
 /* ────────────────────────────────────────────────────────────
    verifyIdDocument — called at registration / verify-identity
+   Also extracts birth_date + gender so the caller can update
+   the member's profile with the authoritative ID data.
 ──────────────────────────────────────────────────────────── */
 export interface VerifyResult {
-  verified:       boolean   // passed all checks
-  is_badi:        boolean   // name contains البادي
-  id_matches:     boolean   // extracted ID matches record
-  extracted_name: string | null
-  extracted_id:   string | null
-  error?:         string
+  verified:             boolean             // passed all checks
+  is_badi:              boolean             // name contains البادي
+  id_matches:           boolean             // extracted ID matches record
+  extracted_name:       string | null
+  extracted_id:         string | null
+  extracted_birth_date: string | null       // ISO YYYY-MM-DD (Gregorian)
+  extracted_gender:     'male' | 'female' | null
+  error?:               string
 }
 
 export async function verifyIdDocument(opts: {
@@ -130,17 +134,24 @@ export async function verifyIdDocument(opts: {
   const { full_name, national_id, id_document } = opts
 
   const doc = buildDocBlock(id_document)
-  if (!doc) return { verified: false, is_badi: false, id_matches: false, extracted_name: null, extracted_id: null, error: 'unsupported_format' }
+  if (!doc) return {
+    verified: false, is_badi: false, id_matches: false,
+    extracted_name: null, extracted_id: null,
+    extracted_birth_date: null, extracted_gender: null,
+    error: 'unsupported_format',
+  }
 
   const text = await callClaude(
     doc.block,
-    `أنت نظام للتحقق من وثائق الهوية الرسمية السعودية.
-استخرج من هذه الوثيقة:
-1. الاسم الكامل (كما يظهر في الوثيقة)
-2. رقم الهوية الوطنية (10 أرقام)
+    `أنت نظام للتحقق من وثائق الهوية الرسمية السعودية من تطبيق توكلنا.
+استخرج من هذه الوثيقة البيانات التالية بدقة:
+1. الاسم الكامل بالعربي (كما يظهر في الوثيقة)
+2. رقم الهوية الوطنية (10 أرقام تبدأ بـ 1)
+3. تاريخ الميلاد الميلادي (YYYY-MM-DD) — إذا كان هجرياً فحوّله إلى ميلادي
+4. الجنس: "male" للذكر، "female" للأنثى
 
 أجب بـ JSON فقط، لا تضف أي نص خارجه:
-{"name": "الاسم الكامل هنا", "national_id": "1234567890"}
+{"name": "الاسم الكامل", "national_id": "1234567890", "birth_date": "1985-04-05", "gender": "male"}
 
 إذا لم تتمكن من قراءة أي حقل استخدم null.`,
     doc.isPdf,
@@ -148,23 +159,28 @@ export async function verifyIdDocument(opts: {
 
   if (!text) return null
 
-  let parsed: { name?: string | null; national_id?: string | null } = {}
+  let parsed: any = {}
   const jsonMatch = text.match(/\{[\s\S]*?\}/)
   if (jsonMatch) { try { parsed = JSON.parse(jsonMatch[0]) } catch { /* ignore */ } }
 
-  const extractedName = typeof parsed.name === 'string' ? parsed.name.trim() : null
-  const extractedId   = typeof parsed.national_id === 'string'
-    ? parsed.national_id.replace(/[\s\-_]/g, '') : null
+  const extractedName  = typeof parsed.name        === 'string' ? parsed.name.trim()                               : null
+  const extractedId    = typeof parsed.national_id === 'string' ? parsed.national_id.replace(/[\s\-_]/g, '')       : null
+  const extractedBirth = typeof parsed.birth_date  === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(parsed.birth_date)
+    ? parsed.birth_date : null
+  const extractedGender: 'male' | 'female' | null =
+    parsed.gender === 'male' || parsed.gender === 'female' ? parsed.gender : null
 
   const memberIdClean = (national_id || '').replace(/[\s\-_]/g, '')
   const isBadi        = full_name.includes('البادي') || (extractedName || '').includes('البادي')
   const idMatches     = !!(extractedId && memberIdClean && extractedId === memberIdClean)
 
   return {
-    verified:       isBadi && idMatches,
-    is_badi:        isBadi,
-    id_matches:     idMatches,
-    extracted_name: extractedName,
-    extracted_id:   extractedId,
+    verified:             isBadi && idMatches,
+    is_badi:              isBadi,
+    id_matches:           idMatches,
+    extracted_name:       extractedName,
+    extracted_id:         extractedId,
+    extracted_birth_date: extractedBirth,
+    extracted_gender:     extractedGender,
   }
 }

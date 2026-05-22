@@ -79,12 +79,28 @@ export async function POST(req: NextRequest) {
         national_id: body.national_id || null,
         id_document: String(body.id_document),
       })
+
       if (aiResult?.verified) {
-        await sql`
-          UPDATE members
-          SET id_verified = true, id_verified_at = NOW(), status = 'active'
-          WHERE id = ${ins.id}
-        `
+        // Build profile update from authoritative ID data
+        const idUpdates: Record<string, any> = {
+          id_verified: true, id_verified_at: new Date().toISOString(), status: 'active',
+        }
+        if (aiResult.extracted_name)       idUpdates.full_name   = aiResult.extracted_name
+        if (aiResult.extracted_id)         idUpdates.national_id = aiResult.extracted_id
+        if (aiResult.extracted_birth_date) {
+          idUpdates.birth_date = aiResult.extracted_birth_date
+          idUpdates.birth_year = Number(aiResult.extracted_birth_date.slice(0, 4))
+        }
+        if (aiResult.extracted_gender)     idUpdates.gender = aiResult.extracted_gender
+
+        try {
+          await sql`UPDATE members SET ${sql(idUpdates)}, updated_at = NOW() WHERE id = ${ins.id}`
+        } catch (e2: any) {
+          // Shouldn't fail — national_id just inserted so no conflict
+          console.error('[register] profile update from ID error:', (e2 as Error).message)
+          // Fallback: at least activate
+          await sql`UPDATE members SET id_verified = true, id_verified_at = NOW(), status = 'active' WHERE id = ${ins.id}`
+        }
         aiVerified = true
       }
     } catch (e) {
