@@ -53,21 +53,6 @@ function VerifyEmail() {
     }
   }
 
-  async function submit(e?: React.FormEvent) {
-    e?.preventDefault()
-    setError(''); setBusy(true)
-    try {
-      await api.auth.verifyEmail(member_id, code.join(''))
-      setDone(true)
-    } catch (err: any) {
-      setError(err.message)
-      setCode(['', '', '', '', '', ''])
-      refs.current[0]?.focus()
-    } finally {
-      setBusy(false)
-    }
-  }
-
   async function resend() {
     setError('')
     try {
@@ -93,19 +78,42 @@ function VerifyEmail() {
     )
   }
 
+  const [activated, setActivated] = useState(false)
+
+  async function submit(e?: React.FormEvent) {
+    e?.preventDefault()
+    setError(''); setBusy(true)
+    try {
+      const r = await api.auth.verifyEmail(member_id, code.join(''))
+      if (r.activated) setActivated(true)
+      setDone(true)
+    } catch (err: any) {
+      setError(err.message)
+      setCode(['', '', '', '', '', ''])
+      refs.current[0]?.focus()
+    } finally {
+      setBusy(false)
+    }
+  }
+
   if (done) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="card card-body max-w-md text-center">
-          <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4">
+          <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${activated ? 'bg-emerald-100 text-emerald-600' : 'bg-brand-100 text-brand-700'}`}>
             <CheckCircle2 size={36} />
           </div>
-          <h1 className="font-display text-2xl font-extrabold text-brand-950 mb-2">تم تأكيد بريدك</h1>
-          <p className="text-brand-600 text-sm mb-6">
-            بريدك الإلكتروني مؤكد ✅<br />
-            طلب الانضمام لا يزال بانتظار مراجعة لجنة الصندوق.
+          <h1 className="font-display text-2xl font-extrabold text-brand-950 dark:text-brand-50 mb-2">
+            {activated ? 'تم تفعيل حسابك! 🎉' : 'تم تأكيد بريدك ✅'}
+          </h1>
+          <p className="text-brand-600 dark:text-brand-400 text-sm mb-6">
+            {activated
+              ? 'البريد الإلكتروني مؤكد والهوية محققة. يمكنك الدخول الآن.'
+              : 'بريدك مؤكد. الخطوة الأخيرة: ارفع صورة هويتك من توكلنا لتفعيل الحساب.'}
           </p>
-          <Link href="/" className="btn-primary">العودة للرئيسية</Link>
+          {activated
+            ? <Link href="/login" className="btn-primary">تسجيل الدخول</Link>
+            : <Link href={`/verify-identity?m=${member_id}`} className="btn-primary">رفع صورة الهوية</Link>}
         </div>
       </div>
     )

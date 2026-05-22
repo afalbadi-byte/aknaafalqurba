@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { UserPlus, Loader2, CheckCircle2, CalendarDays, Upload } from 'lucide-react'
+import { UserPlus, Loader2, CheckCircle2, CalendarDays, MailCheck, ShieldCheck } from 'lucide-react'
 import { api } from '@/lib/api-client'
 import Logo from '@/components/logo'
 import DarkToggle from '@/components/dark-toggle'
@@ -228,24 +228,11 @@ export default function Register() {
     full_name: '', phone: '', email: '', national_id: '', branch: '', city: '',
     birth_date: '', gender: '', generation_number: '', password: '', confirm: '',
   })
-  const [idDoc,     setIdDoc]     = useState<string | null>(null)
-  const [idDocName, setIdDocName] = useState('')
-  const [busy,  setBusy]  = useState(false)
-  const [error, setError] = useState('')
-  const [done,  setDone]  = useState(false)
+  const [busy,      setBusy]     = useState(false)
+  const [error,     setError]    = useState('')
+  const [memberId,  setMemberId] = useState<number | null>(null)
+  const [emailPending, setEmailPending] = useState(false)
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
-
-  function handleIdDocFile(file: File | null) {
-    if (!file) { setIdDoc(null); setIdDocName(''); return }
-    if (file.size > 5 * 1024 * 1024) {
-      setError('حجم الملف يجب أن يكون أقل من ٥ ميجابايت')
-      return
-    }
-    setIdDocName(`${file.name}  (${(file.size / 1024).toFixed(0)} KB)`)
-    const reader = new FileReader()
-    reader.onload = () => setIdDoc(reader.result as string)
-    reader.readAsDataURL(file)
-  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault(); setError('')
@@ -256,32 +243,64 @@ export default function Register() {
       const { confirm, ...payload } = form
       const r = await api.auth.register({
         ...payload,
-        national_id: payload.national_id || undefined,
-        birth_date: payload.birth_date || undefined,
+        national_id:       payload.national_id || undefined,
+        birth_date:        payload.birth_date || undefined,
         generation_number: payload.generation_number ? Number(payload.generation_number) : undefined,
-        id_document: idDoc || undefined,
       })
-      if (r.email_pending && r.member_id) {
-        router.push(`/verify-email?m=${r.member_id}`)
-        return
-      }
-      setDone(true)
+      setMemberId(r.member_id)
+      setEmailPending(!!r.email_pending)
     } catch (err: any) { setError(err.message) }
     finally { setBusy(false) }
   }
 
-  if (done) {
+  // ── Success screen ──
+  if (memberId) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="card card-body max-w-md text-center">
-          <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4">
+        <div className="card card-body max-w-md">
+          <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 flex items-center justify-center mx-auto mb-4">
             <CheckCircle2 size={36} />
           </div>
-          <h2 className="font-display text-2xl font-extrabold text-brand-950 mb-2">تم استلام طلبك</h2>
-          <p className="text-brand-600 text-sm mb-6">
-            تم تسجيل طلب انضمامك للصندوق. سيتم تفعيل حسابك بعد مراجعته من قبل لجنة الصندوق.
+          <h2 className="font-display text-2xl font-extrabold text-brand-950 dark:text-brand-50 mb-1 text-center">تم إنشاء حسابك!</h2>
+          <p className="text-center text-brand-600 dark:text-brand-400 text-sm mb-6">
+            أكمل الخطوتين التاليتين لتفعيل عضويتك
           </p>
-          <Link href="/" className="btn-primary">العودة للرئيسية</Link>
+
+          <div className="space-y-3">
+            {/* Step 1: Email */}
+            <Link href={emailPending ? `/verify-email?m=${memberId}` : '#'}
+              className={`flex items-center gap-4 rounded-xl border-2 p-4 transition ${emailPending ? 'border-brand-200 dark:border-brand-700 hover:border-gold-400 hover:bg-brand-50 dark:hover:bg-brand-800' : 'border-brand-100 dark:border-brand-800 opacity-50'}`}>
+              <div className="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-800 flex items-center justify-center shrink-0">
+                <MailCheck size={20} className="text-brand-700 dark:text-brand-300" />
+              </div>
+              <div className="flex-1">
+                <div className="font-bold text-brand-950 dark:text-brand-50 text-sm">
+                  {emailPending ? '① تأكيد البريد الإلكتروني' : '① لا يوجد بريد إلكتروني'}
+                </div>
+                <div className="text-xs text-brand-500 dark:text-brand-400">
+                  {emailPending ? 'تحقق من بريدك وأدخل الرمز المُرسَل' : 'أضف بريدك من الملف الشخصي لاحقاً'}
+                </div>
+              </div>
+              {emailPending && <span className="text-xs text-brand-400">←</span>}
+            </Link>
+
+            {/* Step 2: Identity */}
+            <Link href={`/verify-identity?m=${memberId}`}
+              className="flex items-center gap-4 rounded-xl border-2 border-brand-200 dark:border-brand-700 p-4 hover:border-gold-400 hover:bg-brand-50 dark:hover:bg-brand-800 transition">
+              <div className="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-800 flex items-center justify-center shrink-0">
+                <ShieldCheck size={20} className="text-brand-700 dark:text-brand-300" />
+              </div>
+              <div className="flex-1">
+                <div className="font-bold text-brand-950 dark:text-brand-50 text-sm">② رفع صورة الهوية</div>
+                <div className="text-xs text-brand-500 dark:text-brand-400">ارفع هويتك من تطبيق توكلنا</div>
+              </div>
+              <span className="text-xs text-brand-400">←</span>
+            </Link>
+          </div>
+
+          <p className="text-center text-xs text-brand-400 dark:text-brand-500 mt-4">
+            يُفعَّل حسابك تلقائياً بعد اكتمال الخطوتين
+          </p>
         </div>
       </div>
     )
@@ -339,31 +358,6 @@ export default function Register() {
               </div>
 
               <F label="المدينة"            v={form.city}       on={v => set('city', v)} />
-
-              {/* National ID document upload */}
-              <div className="sm:col-span-2">
-                <label className="label">
-                  صورة الهوية الوطنية من توكلنا
-                  <span className="text-brand-400 font-normal text-xs mr-2">PDF أو صورة — حتى ٥ ميجابايت</span>
-                </label>
-                <label className="flex items-center gap-3 input cursor-pointer hover:bg-brand-50 dark:hover:bg-brand-800 transition">
-                  <Upload size={16} className="text-brand-400 shrink-0" />
-                  <span className="text-sm text-brand-500 dark:text-brand-400 flex-1 truncate">
-                    {idDocName || 'اختر ملف PDF أو صورة...'}
-                  </span>
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept=".pdf,image/*"
-                    onChange={e => handleIdDocFile(e.target.files?.[0] ?? null)}
-                  />
-                </label>
-                {idDoc && (
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 flex items-center gap-1">
-                    <CheckCircle2 size={12} /> تم اختيار الملف بنجاح
-                  </p>
-                )}
-              </div>
 
               <F label="كلمة المرور *"       v={form.password}   on={v => set('password', v)} type="password" required />
               <F label="تأكيد كلمة المرور *" v={form.confirm}    on={v => set('confirm', v)} type="password" required />

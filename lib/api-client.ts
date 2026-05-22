@@ -38,6 +38,8 @@ export const api = {
     resendVerification: (member_id: number) =>
       post('/api/auth/resend-verification', { member_id }),
     verifyId:        (member_id: number) => post('/api/auth/verify-id', { member_id }),
+    verifyIdentityDoc: (member_id: number, id_document: string) =>
+      post('/api/auth/verify-identity', { member_id, id_document }),
   },
   members: {
     list:         (status?: string) => get(`/api/members${status ? `?status=${status}` : ''}`),
