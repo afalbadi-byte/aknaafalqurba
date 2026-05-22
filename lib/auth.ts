@@ -101,17 +101,7 @@ export async function currentUser(): Promise<Member | null> {
     `
     permissions = perms.map(p => p.permission)
   } catch { /* migration 009 not yet applied */ }
-  // Load gender + generation_number (columns may not exist before migration 010)
-  let gender: string | null = null
-  let generation_number: number | null = null
-  try {
-    const [extra] = await sql<{ gender: string | null; generation_number: number | null }[]>`
-      SELECT gender, generation_number FROM members WHERE id = ${rows[0].id}
-    `
-    gender = extra?.gender ?? null
-    generation_number = extra?.generation_number ?? null
-  } catch { /* migration 010 not yet applied */ }
-  return { ...rows[0], permissions, gender, generation_number }
+  return { ...rows[0], permissions, gender: null, generation_number: null }
 }
 
 /** Returns true if user has the given individual permission */
