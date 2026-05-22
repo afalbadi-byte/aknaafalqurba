@@ -1,17 +1,56 @@
-// Email sending via SMTP (Hostinger / any SMTP provider).
-// Reads credentials from env. If SMTP_HOST is unset, emails silently no-op
-// so the platform keeps working in dev without SMTP configured.
+// Email sending — tries Resend first (if RESEND_API_KEY is set), then falls
+// back to SMTP via nodemailer (Hostinger or any SMTP provider).
+// If neither is configured the call is a silent no-op so dev still works.
 
 import nodemailer, { type Transporter } from 'nodemailer'
 
+// ── Resend (preferred) — uses raw REST API to avoid SDK version issues ────────
+async function trySendViaResend(
+  to: string,
+  subject: string,
+  html: string,
+  text: string,
+): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) {
+    console.log('[email/resend] RESEND_API_KEY not set, skipping')
+    return false
+  }
+
+  // Use plain ASCII display name to avoid encoding issues
+  const from = process.env.RESEND_FROM
+    || `Akhnaf AlQurba <noreply@aknafalqurba.com>`
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ from, to, subject, html, text }),
+    })
+    const data = await res.json() as any
+    if (!res.ok) {
+      console.error('[email/resend] API error:', JSON.stringify(data))
+      return false
+    }
+    console.log('[email/resend] sent OK, id:', data?.id)
+    return true
+  } catch (e) {
+    console.error('[email/resend] fetch exception:', (e as Error).message)
+    return false
+  }
+}
+
+// ── SMTP / nodemailer (fallback) ─────────────────────────────────────────────
 let cached: Transporter | null = null
 
-function transporter(): Transporter | null {
+function smtpTransporter(): Transporter | null {
   if (cached) return cached
   const host = process.env.SMTP_HOST
   if (!host) return null
   const port   = Number(process.env.SMTP_PORT || 465)
-  // port 465 = SSL (secure:true), port 587 = STARTTLS (secure:false)
   const secure = port === 465 ? true : process.env.SMTP_SECURE !== 'false'
   cached = nodemailer.createTransport({
     host,
@@ -21,15 +60,35 @@ function transporter(): Transporter | null {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     },
-    tls: { rejectUnauthorized: false },  // avoid self-signed cert issues
+    tls: { rejectUnauthorized: false },
   })
   return cached
 }
 
 // Use plain ASCII display name to avoid SMTP header encoding issues
-const FROM = process.env.SMTP_FROM
+const SMTP_FROM = process.env.SMTP_FROM
   || (process.env.SMTP_USER ? `Akhnaf AlQurba <${process.env.SMTP_USER}>` : null)
 
+async function trySendViaSMTP(
+  to: string,
+  subject: string,
+  html: string,
+  text: string,
+): Promise<boolean> {
+  const t = smtpTransporter()
+  if (!t || !SMTP_FROM) return false
+  try {
+    await t.sendMail({ from: SMTP_FROM, to, subject, html, text })
+    return true
+  } catch (e) {
+    console.error('[email/smtp] sendMail failed:', (e as Error).message)
+    console.error('[email/smtp] config → host:', process.env.SMTP_HOST,
+      'port:', process.env.SMTP_PORT, 'user:', process.env.SMTP_USER)
+    return false
+  }
+}
+
+// ── Public API ────────────────────────────────────────────────────────────────
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://aknafalqurba.com'
 
 export type EmailOptions = {
@@ -44,23 +103,20 @@ export type EmailOptions = {
 }
 
 export async function sendEmail({ to, subject, body, cta, preheader }: EmailOptions): Promise<boolean> {
-  const t = transporter()
-  if (!t || !FROM) return false   // SMTP not configured — no-op
-
   const html = renderTemplate({ subject, body, cta, preheader })
   const text = stripHtml(body) + (cta ? `\n\n${cta.label}: ${cta.url}` : '')
 
-  try {
-    await t.sendMail({ from: FROM, to, subject, html, text })
-    return true
-  } catch (e) {
-    console.error('[email] sendMail failed:', (e as Error).message)
-    console.error('[email] config → host:', process.env.SMTP_HOST, 'port:', process.env.SMTP_PORT, 'user:', process.env.SMTP_USER, 'from:', FROM)
-    return false
-  }
+  // 1) Try Resend (modern API, most reliable)
+  if (await trySendViaResend(to, subject, html, text)) return true
+
+  // 2) Fall back to SMTP
+  if (await trySendViaSMTP(to, subject, html, text)) return true
+
+  console.warn('[email] No email provider configured or all providers failed. to:', to)
+  return false
 }
 
-// ----------------- HTML template (RTL, brand colors) -----------------
+// ── HTML template (RTL, brand colors) ────────────────────────────────────────
 function renderTemplate({
   subject, body, cta, preheader,
 }: { subject: string; body: string; cta?: { label: string; url: string }; preheader?: string }) {

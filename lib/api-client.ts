@@ -44,6 +44,7 @@ export const api = {
     approve:      (id: number)      => post(`/api/members/${id}/approve`),
     setRole:      (id: number, role: string)   => post(`/api/members/${id}/role`,   { role }),
     setStatus:    (id: number, status: string) => post(`/api/members/${id}/status`, { status }),
+    verifyEmailAdmin: (id: number)             => post(`/api/members/${id}/verify-email`),
     dependents:   (memberId?: number) => get(`/api/members/dependents${memberId ? `?member_id=${memberId}` : ''}`),
     addDependent: (d: any)          => post('/api/members/dependents', d),
     delDependent: (id: number)      => del(`/api/members/dependents/${id}`),

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { api } from '@/lib/api-client'
 import { ROLE_LABELS, STATUS_LABELS, statusBadge, formatDate } from '@/lib/utils'
-import { CheckCircle, UserCog, Ban, ShieldCheck, Search } from 'lucide-react'
+import { CheckCircle, UserCog, Ban, ShieldCheck, Search, MailCheck } from 'lucide-react'
 import Modal from '@/components/modal'
 
 const TOP_ADMIN = ['admin','president']
@@ -32,6 +32,10 @@ export default function Members() {
   async function suspend(id: number) { if (confirm('إيقاف الحساب؟')) { await api.members.setStatus(id, 'suspended'); load() } }
   async function activate(id: number){ await api.members.setStatus(id, 'active'); load() }
   async function setRole(id: number, role: string) { await api.members.setRole(id, role); load(); setEditing(null) }
+  async function verifyEmail(id: number) {
+    await api.members.verifyEmailAdmin(id)
+    load()
+  }
 
   const filtered = list.filter(m =>
     !search || m.full_name.includes(search) || m.phone.includes(search) || (m.email || '').includes(search)
@@ -90,7 +94,14 @@ export default function Members() {
                   <tr key={m.id} className="hover:bg-brand-50/30 dark:hover:bg-brand-800/40">
                     <td className="p-3">
                       <div className="font-bold text-brand-950 dark:text-brand-50">{m.full_name}</div>
-                      {m.email && <div className="text-xs text-brand-500 dark:text-brand-400">{m.email}</div>}
+                      {m.email && (
+                        <div className="text-xs text-brand-500 dark:text-brand-400 flex items-center gap-1">
+                          {m.email}
+                          {!m.email_verified && (
+                            <span className="text-amber-500 font-semibold">(غير مؤكد)</span>
+                          )}
+                        </div>
+                      )}
                     </td>
                     <td className="p-3 text-brand-700 dark:text-brand-300">{m.branch || '—'}</td>
                     <td className="p-3 font-mono text-xs text-brand-600 dark:text-brand-400">{m.phone}</td>
@@ -114,6 +125,11 @@ export default function Members() {
                         )}
                         {m.status === 'suspended' && isAdmin && (
                           <button onClick={() => activate(m.id)} className="p-2 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded" title="تفعيل"><ShieldCheck size={16} /></button>
+                        )}
+                        {m.email && !m.email_verified && isAdmin && (
+                          <button onClick={() => verifyEmail(m.id)} className="p-2 hover:bg-amber-50 dark:hover:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded" title="تفعيل البريد الإلكتروني يدوياً">
+                            <MailCheck size={16} />
+                          </button>
                         )}
                       </div>
                     </td>
