@@ -14,7 +14,7 @@ export default function Profile() {
   const [busy, setBusy] = useState(false)
   const [msg,  setMsg]  = useState<any>(null)
   const [deps, setDeps] = useState<any[]>([])
-  const [newDep, setNewDep] = useState({ full_name: '', relation: 'son', birth_date: '' })
+  const [newDep, setNewDep] = useState({ full_name: '', relation: 'son', birth_date: '', national_id: '' })
 
   // Family register (سجل الأسرة) upload + AI extraction
   const famRegRef = useRef<HTMLInputElement>(null)
@@ -178,7 +178,7 @@ export default function Profile() {
     e.preventDefault()
     if (!newDep.full_name) return
     await api.members.addDependent(newDep)
-    setNewDep({ full_name: '', relation: 'son', birth_date: '' }); loadDeps()
+    setNewDep({ full_name: '', relation: 'son', birth_date: '', national_id: '' }); loadDeps()
   }
   async function delDep(id: number) {
     if (!confirm('حذف هذا الفرد؟')) return
@@ -605,7 +605,7 @@ export default function Profile() {
 
               <div className="p-4 space-y-2">
                 {extractedMembers.map(m => (
-                  <div key={m._key} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center">
+                  <div key={m._key} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center">
                     <input
                       className="input !py-2 !text-sm"
                       value={m.full_name}
@@ -613,7 +613,7 @@ export default function Profile() {
                       placeholder="الاسم الكامل"
                     />
                     <select
-                      className="input !py-2 !text-sm w-32"
+                      className="input !py-2 !text-sm w-28"
                       value={m.relation}
                       onChange={e => updateExtracted(m._key, 'relation', e.target.value)}
                     >
@@ -626,6 +626,15 @@ export default function Profile() {
                       type="date"
                       value={m.birth_date ?? ''}
                       onChange={e => updateExtracted(m._key, 'birth_date', e.target.value)}
+                    />
+                    <input
+                      className="input !py-2 !text-sm w-32 font-mono"
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={10}
+                      placeholder="رقم الهوية"
+                      value={m.national_id ?? ''}
+                      onChange={e => updateExtracted(m._key, 'national_id', e.target.value.replace(/\D/g, '').slice(0, 10))}
                     />
                     <button
                       onClick={() => removeExtracted(m._key)}
@@ -668,6 +677,7 @@ export default function Profile() {
                       {d.birth_date
                         ? ` · ${new Date(d.birth_date + 'T00:00:00').toLocaleDateString('ar-SA-u-nu-latn', { year: 'numeric', month: 'short', day: 'numeric' })}`
                         : d.birth_year ? ` · ${d.birth_year}` : ''}
+                      {d.national_id ? <span className="block font-mono text-[11px] mt-0.5 text-brand-400">{d.national_id}</span> : null}
                     </div>
                   </div>
                   <button onClick={() => delDep(d.id)} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded p-1"><Trash2 size={16} /></button>
@@ -677,20 +687,24 @@ export default function Profile() {
           )}
 
           {/* Manual add form */}
-          <form onSubmit={addDep} className="grid sm:grid-cols-4 gap-3">
-            <input className="input sm:col-span-2" placeholder="الاسم الكامل"
-              value={newDep.full_name} onChange={e => setNewDep({ ...newDep, full_name: e.target.value })} />
+          <form onSubmit={addDep} className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <input className="input sm:col-span-2" placeholder="الاسم الكامل *"
+              value={newDep.full_name} onChange={e => setNewDep({ ...newDep, full_name: e.target.value })} required />
             <select className="input" value={newDep.relation}
               onChange={e => setNewDep({ ...newDep, relation: e.target.value })}>
               {Object.entries(RELATION_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
-            <div>
-              <input className="input" type="date"
+            <input className="input font-mono" type="text" inputMode="numeric" maxLength={10}
+              placeholder="رقم الهوية"
+              value={newDep.national_id}
+              onChange={e => setNewDep({ ...newDep, national_id: e.target.value.replace(/\D/g, '').slice(0, 10) })} />
+            <div className="sm:col-span-2">
+              <input className="input w-full" type="date"
                 value={newDep.birth_date}
                 onChange={e => setNewDep({ ...newDep, birth_date: e.target.value })} />
               <p className="text-[11px] text-brand-400 mt-0.5 pr-1">تاريخ الميلاد</p>
             </div>
-            <button className="btn-primary sm:col-span-4" type="submit">
+            <button className="btn-primary sm:col-span-2 lg:col-span-4" type="submit">
               <UserPlus size={16} /> إضافة فرد يدوياً
             </button>
           </form>

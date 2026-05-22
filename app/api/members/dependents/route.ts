@@ -20,26 +20,25 @@ export async function POST(req: NextRequest) {
   const fe = requireFields(body, ['full_name', 'relation'])
   if (fe) return fe
 
-  // Validate birth_date if provided
   const birthDate = typeof body.birth_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.birth_date)
-    ? body.birth_date
-    : null
-  // Derive birth_year from birth_date, or use legacy birth_year field
+    ? body.birth_date : null
   const birthYear = birthDate
     ? Number(birthDate.slice(0, 4))
     : (body.birth_year ? Number(body.birth_year) : null)
+  const nationalId = typeof body.national_id === 'string'
+    ? body.national_id.replace(/\D/g, '').slice(0, 10) || null : null
 
   let id: number
   try {
     const [ins] = await sql<{ id: number }[]>`
-      INSERT INTO family_dependents (member_id, full_name, relation, birth_date, birth_year, notes)
+      INSERT INTO family_dependents (member_id, full_name, relation, birth_date, birth_year, national_id, notes)
       VALUES (${mid}, ${body.full_name.trim()}, ${body.relation},
-              ${birthDate}, ${birthYear}, ${body.notes || null})
+              ${birthDate}, ${birthYear}, ${nationalId}, ${body.notes || null})
       RETURNING id
     `
     id = ins.id
   } catch {
-    // Fallback: migration 013 not yet applied
+    // Fallback: migrations 013/014 not yet applied
     const [ins] = await sql<{ id: number }[]>`
       INSERT INTO family_dependents (member_id, full_name, relation, birth_year, notes)
       VALUES (${mid}, ${body.full_name.trim()}, ${body.relation},

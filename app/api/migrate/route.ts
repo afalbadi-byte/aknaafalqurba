@@ -112,6 +112,10 @@ const MIGRATIONS: { name: string; up: string }[] = [
     up: `ALTER TABLE family_dependents ADD COLUMN IF NOT EXISTS birth_date DATE;`,
   },
   {
+    name: '014-dependent-national-id',
+    up: `ALTER TABLE family_dependents ADD COLUMN IF NOT EXISTS national_id VARCHAR(10);`,
+  },
+  {
     name: '008-activity-logs',
     up: `
       CREATE TABLE IF NOT EXISTS activity_logs (
@@ -206,6 +210,13 @@ export async function GET() {
           const [col] = await sql`
             SELECT column_name FROM information_schema.columns
             WHERE table_name = 'family_dependents' AND column_name = 'birth_date'
+          `
+          return { name: m.name, status: col ? 'applied' : 'pending' }
+        }
+        if (m.name.startsWith('014')) {
+          const [col] = await sql`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'family_dependents' AND column_name = 'national_id'
           `
           return { name: m.name, status: col ? 'applied' : 'pending' }
         }
