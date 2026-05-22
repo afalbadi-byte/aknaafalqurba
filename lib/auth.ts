@@ -25,7 +25,21 @@ export type Member = {
   status: 'pending' | 'active' | 'suspended'
   notes: string | null
   created_at: string
+  /** Individual permission grants (beyond role) */
+  permissions: string[]
 }
+
+/** All defined individual permissions that can be granted per-user */
+export const PERMISSION_DEFS = [
+  { key: 'payment.review',  label: 'مراجعة الدفعات',     desc: 'اعتماد أو رفض الدفعات' },
+  { key: 'expense.manage',  label: 'إدارة المصروفات',     desc: 'إضافة وحذف المصروفات' },
+  { key: 'aid.review',      label: 'مراجعة المعونات',     desc: 'مراجعة طلبات المعونة وتغيير حالتها' },
+  { key: 'news.publish',    label: 'نشر الأخبار',         desc: 'إضافة وتعديل وحذف الأخبار' },
+  { key: 'report.view',     label: 'عرض التقارير',        desc: 'الوصول للتقارير المالية' },
+  { key: 'member.view',     label: 'عرض قائمة الأعضاء',  desc: 'رؤية بيانات الأعضاء كاملة' },
+] as const
+
+export type PermissionKey = typeof PERMISSION_DEFS[number]['key']
 
 export async function hashPassword(pw: string) {
   return bcrypt.hash(pw, 10)
@@ -66,7 +80,7 @@ export async function currentUser(): Promise<Member | null> {
   const jar = await cookies()
   const token = jar.get(COOKIE)?.value
   if (!token) return null
-  const rows = await sql<Member[]>`
+  const rows = await sql<Omit<Member, 'permissions'>[]>`
     SELECT m.id, m.full_name, m.phone, m.email, m.email_verified, m.branch,
            m.birth_year, m.birth_date, m.city, m.address, m.national_id,
            m.role, m.status, m.avatar, m.theme, m.notes, m.created_at
@@ -76,7 +90,31 @@ export async function currentUser(): Promise<Member | null> {
       AND s.expires_at > NOW()
     LIMIT 1
   `
-  return rows[0] ?? null
+  if (!rows[0]) return null
+  // Load individual permissions (table may not exist before migration 009)
+  let permissions: string[] = []
+  try {
+    const perms = await sql<{ permission: string }[]>`
+      SELECT permission FROM member_permissions WHERE member_id = ${rows[0].id}
+    `
+    permissions = perms.map(p => p.permission)
+  } catch { /* migration 009 not yet applied */ }
+  return { ...rows[0], permissions }
+}
+
+/** Returns true if user has the given individual permission */
+export function hasPerm(user: Member, permission: string): boolean {
+  return user.permissions.includes(permission)
+}
+
+/** requireRole OR individual permission — combines both checks */
+export async function requireRoleOrPerm(roles: Member['role'][], permission: string) {
+  const { user, error } = await requireUser()
+  if (error) return { user: null, error }
+  if (roles.includes(user!.role) || hasPerm(user!, permission)) {
+    return { user: user!, error: null as NextResponse | null }
+  }
+  return { user: null, error: jsonError('forbidden', 'لا تملك الصلاحية اللازمة', 403) }
 }
 
 /** Requires an authenticated user. Returns a NextResponse if not. */

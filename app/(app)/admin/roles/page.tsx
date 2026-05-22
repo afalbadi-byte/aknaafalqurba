@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api-client'
 import { ROLE_LABELS } from '@/lib/utils'
-import { Check, Minus, UserCog, Loader2 } from 'lucide-react'
+import { Check, Minus, Loader2, X, UserCog, ShieldPlus } from 'lucide-react'
 import { Avatar } from '@/components/app-shell'
 
 /* ── Permission matrix definition ── */
@@ -33,6 +33,16 @@ const PERMISSIONS: { label: string; section: string; roles: Role[] }[] = [
   { section: 'الإدارة العليا',   label: 'مهاجرات قاعدة البيانات',    roles: ['president','admin'] },
 ]
 
+/** Individual permissions that can be granted per-member beyond their role */
+const INDIVIDUAL_PERMS = [
+  { key: 'payment.review', label: 'مراجعة الدفعات',    desc: 'اعتماد أو رفض الدفعات' },
+  { key: 'expense.manage', label: 'إدارة المصروفات',    desc: 'إضافة وحذف المصروفات' },
+  { key: 'aid.review',     label: 'مراجعة المعونات',    desc: 'مراجعة طلبات المعونة وتغيير حالتها' },
+  { key: 'news.publish',   label: 'نشر الأخبار',        desc: 'إضافة وتعديل وحذف الأخبار' },
+  { key: 'report.view',    label: 'عرض التقارير',       desc: 'الوصول للتقارير المالية' },
+  { key: 'member.view',    label: 'عرض قائمة الأعضاء', desc: 'رؤية بيانات الأعضاء كاملة' },
+]
+
 const ROLE_COLORS: Record<Role, string> = {
   member:        'bg-brand-100 dark:bg-brand-800 text-brand-700 dark:text-brand-300',
   aid_committee: 'bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-400',
@@ -43,11 +53,134 @@ const ROLE_COLORS: Record<Role, string> = {
 
 const SECTION_ORDER = ['الخدمات الأساسية', 'لوحة الإدارة', 'الصندوق', 'الإدارة العليا']
 
+/* ── Per-member permissions modal ── */
+function PermissionsModal({
+  member,
+  onClose,
+}: {
+  member: any
+  onClose: () => void
+}) {
+  const [granted, setGranted]   = useState<string[]>([])
+  const [loading, setLoading]   = useState(true)
+  const [busy,    setBusy]      = useState<string | null>(null)
+  const [error,   setError]     = useState('')
+
+  useEffect(() => {
+    setLoading(true)
+    api.permissions.list(member.id)
+      .then(r => setGranted(r.permissions.map((p: any) => p.permission)))
+      .catch(() => setError('تعذّر تحميل الصلاحيات'))
+      .finally(() => setLoading(false))
+  }, [member.id])
+
+  async function toggle(key: string) {
+    const has = granted.includes(key)
+    setBusy(key)
+    setError('')
+    try {
+      if (has) {
+        await api.permissions.revoke(member.id, key)
+        setGranted(g => g.filter(k => k !== key))
+      } else {
+        await api.permissions.grant(member.id, key)
+        setGranted(g => [...g, key])
+      }
+    } catch (e: any) {
+      setError(e.message || 'حدث خطأ')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-white dark:bg-brand-900 rounded-2xl shadow-2xl w-full max-w-md">
+        {/* Header */}
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-brand-100 dark:border-brand-700">
+          <Avatar name={member.full_name} src={member.avatar} size={40} />
+          <div className="flex-1 min-w-0">
+            <div className="font-bold text-brand-950 dark:text-brand-50 truncate">{member.full_name}</div>
+            <div className="text-xs text-brand-500 dark:text-brand-400 font-mono">{member.phone}</div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-brand-100 dark:hover:bg-brand-800 text-brand-500">
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-5 py-4">
+          <div className="flex items-center gap-2 mb-4">
+            <ShieldPlus size={15} className="text-brand-400" />
+            <span className="text-sm font-bold text-brand-800 dark:text-brand-200">صلاحيات فردية إضافية</span>
+            <span className="text-xs text-brand-400 dark:text-brand-500 mr-auto">تُمنح فوق صلاحيات الدور</span>
+          </div>
+
+          {error && (
+            <div className="mb-3 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
+              {error}
+            </div>
+          )}
+
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 size={24} className="animate-spin text-brand-400" />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {INDIVIDUAL_PERMS.map(perm => {
+                const has = granted.includes(perm.key)
+                const isBusy = busy === perm.key
+                return (
+                  <button
+                    key={perm.key}
+                    onClick={() => toggle(perm.key)}
+                    disabled={!!busy}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition text-right ${
+                      has
+                        ? 'border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20'
+                        : 'border-brand-200 dark:border-brand-700 bg-brand-50 dark:bg-brand-800/50 hover:bg-brand-100 dark:hover:bg-brand-800'
+                    } disabled:opacity-60`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-sm font-semibold ${has ? 'text-emerald-700 dark:text-emerald-400' : 'text-brand-800 dark:text-brand-200'}`}>
+                        {perm.label}
+                      </div>
+                      <div className="text-xs text-brand-500 dark:text-brand-400 mt-0.5">{perm.desc}</div>
+                    </div>
+                    <div className={`shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition ${
+                      has
+                        ? 'bg-emerald-500 border-emerald-500'
+                        : 'border-brand-300 dark:border-brand-600'
+                    }`}>
+                      {isBusy ? (
+                        <Loader2 size={12} className="animate-spin text-white" />
+                      ) : has ? (
+                        <Check size={13} className="text-white" strokeWidth={3} />
+                      ) : null}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-brand-100 dark:border-brand-700">
+          <button onClick={onClose} className="btn-ghost w-full text-sm">إغلاق</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function RolesPage() {
-  const [members,  setMembers]  = useState<any[]>([])
-  const [loading,  setLoading]  = useState(true)
-  const [busy,     setBusy]     = useState<number | null>(null)
-  const [selfRole, setSelfRole] = useState<string>('')
+  const [members,        setMembers]        = useState<any[]>([])
+  const [loading,        setLoading]        = useState(true)
+  const [busy,           setBusy]           = useState<number | null>(null)
+  const [selfRole,       setSelfRole]       = useState<string>('')
+  const [permsMember,    setPermsMember]    = useState<any | null>(null)
 
   useEffect(() => {
     api.auth.me().then(r => setSelfRole(r.user?.role))
@@ -74,8 +207,8 @@ export default function RolesPage() {
     else byRole[m.role] = [m]
   }
 
-  // Get unique sections in order
   const sections = SECTION_ORDER
+  const canManagePerms = ['president', 'admin'].includes(selfRole)
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
@@ -136,7 +269,15 @@ export default function RolesPage() {
 
       {/* ── Members by Role ── */}
       <div>
-        <h2 className="font-bold text-brand-950 dark:text-brand-50 text-base mb-4">الأعضاء حسب الدور</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-bold text-brand-950 dark:text-brand-50 text-base">الأعضاء حسب الدور</h2>
+          {canManagePerms && (
+            <span className="text-xs text-brand-500 dark:text-brand-400 flex items-center gap-1.5">
+              <ShieldPlus size={13} />
+              اضغط على عضو لإدارة صلاحياته الفردية
+            </span>
+          )}
+        </div>
         <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
           {ROLES.map(role => (
             <div key={role} className="card overflow-hidden">
@@ -158,21 +299,38 @@ export default function RolesPage() {
                 )}
                 {!loading && byRole[role]?.map(m => (
                   <div key={m.id} className="px-4 py-2.5 flex items-center gap-3">
-                    <Avatar name={m.full_name} src={m.avatar} size={32} />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-brand-900 dark:text-brand-100 text-sm truncate">{m.full_name}</div>
+                    {/* Avatar — clickable to manage permissions (president/admin only) */}
+                    <button
+                      onClick={() => canManagePerms && setPermsMember(m)}
+                      disabled={!canManagePerms}
+                      title={canManagePerms ? 'إدارة الصلاحيات الفردية' : ''}
+                      className={`shrink-0 ${canManagePerms ? 'cursor-pointer hover:opacity-75 transition-opacity' : 'cursor-default'}`}
+                    >
+                      <Avatar name={m.full_name} src={m.avatar} size={32} />
+                    </button>
+                    <div
+                      className={`flex-1 min-w-0 ${canManagePerms ? 'cursor-pointer' : ''}`}
+                      onClick={() => canManagePerms && setPermsMember(m)}
+                    >
+                      <div className="font-semibold text-brand-900 dark:text-brand-100 text-sm truncate flex items-center gap-1.5">
+                        {m.full_name}
+                        {canManagePerms && (
+                          <UserCog size={12} className="text-brand-300 dark:text-brand-600 shrink-0" />
+                        )}
+                      </div>
                       <div className="text-[11px] text-brand-400 font-mono">{m.phone}</div>
                     </div>
 
-                    {/* Role change — only for president/admin, and can't change own role */}
-                    {['president','admin'].includes(selfRole) && (
+                    {/* Role change — only for president/admin */}
+                    {canManagePerms && (
                       busy === m.id ? (
-                        <Loader2 size={14} className="animate-spin text-brand-400" />
+                        <Loader2 size={14} className="animate-spin text-brand-400 shrink-0" />
                       ) : (
                         <select
                           value={m.role}
                           onChange={e => changeRole(m.id, e.target.value)}
-                          className="text-xs border border-brand-200 dark:border-brand-700 rounded-lg px-2 py-1 bg-white dark:bg-brand-900 text-brand-800 dark:text-brand-200 focus:outline-none focus:ring-2 focus:ring-gold-400"
+                          onClick={e => e.stopPropagation()}
+                          className="text-xs border border-brand-200 dark:border-brand-700 rounded-lg px-2 py-1 bg-white dark:bg-brand-900 text-brand-800 dark:text-brand-200 focus:outline-none focus:ring-2 focus:ring-gold-400 shrink-0"
                         >
                           {ROLES.map(r => (
                             <option key={r} value={r}>{ROLE_LABELS[r]}</option>
@@ -207,7 +365,31 @@ export default function RolesPage() {
             </div>
           ))}
         </div>
+
+        {/* Individual permissions legend */}
+        <div className="mt-4 pt-4 border-t border-brand-100 dark:border-brand-800">
+          <h3 className="font-bold text-brand-950 dark:text-brand-50 text-sm mb-3 flex items-center gap-2">
+            <ShieldPlus size={14} className="text-brand-400" />
+            الصلاحيات الفردية المتاحة
+          </h3>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {INDIVIDUAL_PERMS.map(p => (
+              <div key={p.key} className="flex flex-col gap-0.5 bg-brand-50 dark:bg-brand-800/50 rounded-lg px-3 py-2">
+                <span className="text-xs font-bold text-brand-800 dark:text-brand-200">{p.label}</span>
+                <span className="text-[11px] text-brand-500 dark:text-brand-400">{p.desc}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
+
+      {/* Per-member permissions modal */}
+      {permsMember && (
+        <PermissionsModal
+          member={permsMember}
+          onClose={() => setPermsMember(null)}
+        />
+      )}
     </div>
   )
 }

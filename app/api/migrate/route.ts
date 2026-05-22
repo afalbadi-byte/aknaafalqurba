@@ -76,6 +76,20 @@ const MIGRATIONS: { name: string; up: string }[] = [
     `,
   },
   {
+    name: '009-member-permissions',
+    up: `
+      CREATE TABLE IF NOT EXISTS member_permissions (
+        id          SERIAL PRIMARY KEY,
+        member_id   INT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+        permission  VARCHAR(80) NOT NULL,
+        granted_by  INT REFERENCES members(id) ON DELETE SET NULL,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE(member_id, permission)
+      );
+      CREATE INDEX IF NOT EXISTS idx_mperms_member ON member_permissions(member_id);
+    `,
+  },
+  {
     name: '008-activity-logs',
     up: `
       CREATE TABLE IF NOT EXISTS activity_logs (
@@ -137,6 +151,13 @@ export async function GET() {
             WHERE table_name = 'payments' AND column_name = 'reviewed_by'
           `
           return { name: m.name, status: col ? 'applied' : 'pending' }
+        }
+        if (m.name.startsWith('009')) {
+          const [tbl] = await sql`
+            SELECT table_name FROM information_schema.tables
+            WHERE table_name = 'member_permissions'
+          `
+          return { name: m.name, status: tbl ? 'applied' : 'pending' }
         }
         if (m.name.startsWith('008')) {
           const [tbl] = await sql`

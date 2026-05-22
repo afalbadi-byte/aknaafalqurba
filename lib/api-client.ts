@@ -101,4 +101,15 @@ export const api = {
     start:  (d: any)                => post('/api/gateway/start',  d),
     verify: (pid: number)           => get(`/api/gateway/verify?pid=${pid}`),
   },
+  permissions: {
+    list:   (member_id: number)               => get(`/api/permissions?member_id=${member_id}`),
+    grant:  (member_id: number, permission: string) =>
+      post('/api/permissions', { member_id, permission }),
+    revoke: (member_id: number, permission: string) =>
+      call('/api/permissions', { method: 'DELETE', body: JSON.stringify({ member_id, permission }), headers: { 'Content-Type': 'application/json' } }),
+  },
+  logs: {
+    list: (action?: string, limit?: number) =>
+      get(`/api/logs${action || limit ? `?${action ? `action=${action}` : ''}${action && limit ? '&' : ''}${limit ? `limit=${limit}` : ''}` : ''}`),
+  },
 }
