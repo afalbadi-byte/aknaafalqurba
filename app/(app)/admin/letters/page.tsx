@@ -1,136 +1,293 @@
 'use client'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { api } from '@/lib/api-client'
-import { FilePen, Printer, RefreshCw, Loader2, Trash2, BookTemplate, Sparkles } from 'lucide-react'
+import { FilePen, Printer, RefreshCw, Loader2, Trash2, BookTemplate, Sparkles, Stamp } from 'lucide-react'
 
 // ReactQuill needs SSR disabled (accesses document on load)
 const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false })
 
-/* ─── Print CSS ────────────────────────────────────────────── */
+/* ─── Print CSS — matches the official PDF letterhead exactly ── */
 const FUND_PRINT_CSS = `
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { margin: 0; padding: 0; font-family: 'Cairo', sans-serif; background: white; direction: rtl; }
   @page { size: A4; margin: 0; }
-  @media print {
-    html, body { width: 210mm; height: 297mm; }
-    .page-break { page-break-after: always; }
+  @media print { html, body { width: 210mm; height: 297mm; } }
+
+  .a4 { width: 210mm; min-height: 297mm; background: white; display: flex; flex-direction: column; }
+
+  /* ── Top navy bar ── */
+  .top-bar { height: 13px; background: #1a365d; flex-shrink: 0; }
+
+  /* ── Header ── */
+  .lh-header {
+    padding: 20px 36px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    direction: rtl;
+    flex-shrink: 0;
   }
-  .a4 { width: 210mm; min-height: 297mm; background: white; position: relative; display: flex; flex-direction: column; }
-  .top-bar { height: 10px; display: flex; }
-  .top-bar .navy { background: #1a365d; flex: 3; }
-  .top-bar .gold  { background: #c5a059; flex: 1; }
-  .header { padding: 28px 40px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; }
-  .logo-wrap img { height: 90px; object-fit: contain; }
-  .header-info { text-align: left; border-left: 4px solid #c5a059; padding-left: 20px; }
-  .header-info h1 { font-size: 22px; font-weight: 900; color: #1a365d; margin: 0 0 4px; }
-  .header-info .tagline { color: #c5a059; font-size: 12px; font-weight: 700; margin: 0 0 4px; }
-  .header-info .license { color: #94a3b8; font-size: 10px; margin: 0; font-family: monospace; }
-  .content { flex: 1; padding: 28px 40px 20px; position: relative; }
-  .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: 0.03; width: 60%; pointer-events: none; }
-  .meta-row { display: flex; justify-content: flex-end; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px dashed #e2e8f0; font-size: 13px; color: #475569; }
-  .recipient-box { border-right: 4px solid #c5a059; padding: 10px 16px; background: linear-gradient(to left, #f8fafc, transparent); border-radius: 0 12px 12px 0; margin-bottom: 20px; }
-  .recipient-box h3 { font-size: 18px; font-weight: 700; color: #1a365d; margin: 0 0 4px; line-height: 1.6; }
-  .recipient-box .honorific { color: #c5a059; font-size: 14px; display: block; margin-top: 2px; }
-  .subject-pill { text-align: center; margin-bottom: 24px; }
-  .subject-pill span { display: inline-block; border: 2px solid rgba(26,54,93,0.15); padding: 7px 28px; border-radius: 999px; font-size: 16px; font-weight: 900; color: #1a365d; background: white; }
-  .body-text { text-align: justify; line-height: 2.4; color: #1e293b; font-size: 14.5px; font-family: 'Amiri', serif; word-wrap: break-word; }
+  .lh-logo img { height: 76px; object-fit: contain; display: block; }
+
+  .lh-meta { direction: rtl; }
+  .lh-meta-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 12.5px;
+    color: #1a365d;
+    direction: rtl;
+  }
+  .lh-meta-label {
+    font-weight: 700;
+    color: #334155;
+    min-width: 66px;
+    text-align: right;
+    letter-spacing: 0.03em;
+  }
+  .lh-meta-value { font-weight: 600; color: #1a365d; }
+  .lh-meta-value.empty {
+    display: inline-block;
+    min-width: 100px;
+    border-bottom: 1px solid #94a3b8;
+  }
+
+  /* ── Separator line ── */
+  .lh-sep { height: 1.5px; background: #1a365d; margin: 0 36px; opacity: 0.65; flex-shrink: 0; }
+
+  /* ── Content area ── */
+  .lh-content {
+    flex: 1;
+    padding: 26px 36px 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Watermark: right-side, very faint, warm tint */
+  .lh-watermark {
+    position: absolute;
+    top: 50%;
+    right: -15px;
+    transform: translateY(-50%);
+    width: 255px;
+    opacity: 0.065;
+    pointer-events: none;
+    filter: sepia(35%) brightness(1.15);
+  }
+
+  .lh-body { position: relative; z-index: 1; }
+
+  .recipient-block { margin-bottom: 20px; }
+  .recipient-block p {
+    font-size: 13.5px;
+    color: #1a365d;
+    font-weight: 600;
+    margin: 0 0 3px;
+    line-height: 1.8;
+  }
+  .recipient-block .honorific { color: #475569; font-weight: 500; }
+
+  .subject-heading {
+    font-size: 14px;
+    font-weight: 900;
+    color: #1a365d;
+    margin: 16px 0 18px;
+    padding: 8px 0;
+    border-top: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: center;
+  }
+
+  .body-text {
+    text-align: justify;
+    line-height: 2.3;
+    color: #1e293b;
+    font-size: 13.5px;
+    word-wrap: break-word;
+  }
   .body-text p { margin: 0 0 10px; }
-  .body-text li { margin-bottom: 6px; }
-  .sign-row { display: flex; justify-content: flex-end; align-items: flex-end; padding: 0 20px; margin-top: 40px; min-height: 100px; }
-  .sign-block { text-align: center; }
-  .sign-title { font-weight: 700; color: #c5a059; font-size: 13px; margin: 0 0 8px; letter-spacing: 0.05em; }
-  .sign-name { font-weight: 900; font-size: 18px; color: #1a365d; border-top: 2px solid #e2e8f0; padding-top: 8px; min-width: 200px; margin: 0; }
-  .footer { margin-top: auto; padding: 0 28px 28px; }
-  .footer-inner { background: #1a365d; border-radius: 16px; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; color: white; }
-  .footer-left .name { font-weight: 700; color: #c5a059; font-size: 13px; }
-  .footer-left .addr { color: rgba(255,255,255,0.7); font-size: 11px; margin-top: 3px; }
-  .footer-right { text-align: left; font-size: 12px; direction: ltr; }
-  .footer-right span { display: block; color: rgba(255,255,255,0.85); }
-  .footer-right span b { color: #c5a059; }
+  .body-text li { margin-bottom: 5px; }
+  .body-text ol, .body-text ul { padding-right: 1.4em; }
+
+  .sign-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-top: 44px;
+    min-height: 80px;
+    direction: ltr;      /* keep stamp left / signature right regardless of RTL body */
+  }
+  .sign-block { text-align: center; min-width: 175px; direction: rtl; }
+  .sign-title { font-weight: 700; color: #1a365d; font-size: 12px; margin: 0 0 5px; }
+  .sign-name {
+    font-weight: 900;
+    font-size: 15px;
+    color: #1a365d;
+    border-top: 1.5px solid #cbd5e1;
+    padding-top: 7px;
+    margin: 0;
+  }
+
+  /* ── Footer — beige background ── */
+  .lh-footer {
+    background: #ede8db;
+    padding: 14px 36px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  /* Repeating emblem watermarks in footer bg */
+  .lh-footer-wm {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    opacity: 0.12;
+    pointer-events: none;
+  }
+  .lh-footer-wm img { height: 48px; filter: sepia(50%) brightness(0.85); }
+
+  .lh-footer-col { display: flex; flex-direction: column; gap: 5px; position: relative; z-index: 1; }
+
+  .lh-footer-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #1a365d;
+  }
+  .lh-ficon { width: 18px; height: 18px; object-fit: contain; opacity: 0.85; flex-shrink: 0; }
+
+  /* ── Stamp ── */
+  .stamp-wrap { display: flex; align-items: flex-end; padding-bottom: 4px; }
+  .stamp-img  { width: 120px; object-fit: contain; opacity: 0.9; }
+
+  /* ── Bottom navy bar ── */
+  .bottom-bar { height: 13px; background: #1a365d; flex-shrink: 0; }
 `
 
-/* ─── Print Function ────────────────────────────────────────── */
-function printLetter(html: string, title: string, settings: any) {
+/* ─── Build HTML for print window ───────────────────────────── */
+function buildPrintHTML(data: LetterForm, settings: any, origin: string, showStamp: boolean) {
+  const phone       = settings.phone           || '053 96 69 988'
+  const email       = settings.email           || 'info@aknafalqurba.com'
+  const licenseNum  = settings.license_number  || '1200775200'
+  const licenseDate = settings.license_date    || '11/07/1447هـ'
+
+  const wm = `${origin}/brand/watermark.png`
+  const logo = `${origin}/brand/logo.png`
+  const emblem = `${origin}/brand/emblem.png`
+
+  const metaVal = (v: string) =>
+    v ? `<span class="lh-meta-value">${v}</span>`
+      : `<span class="lh-meta-value empty">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>`
+
+  return `<div class="a4">
+  <div class="top-bar"></div>
+  <div class="lh-header">
+    <div class="lh-logo">
+      <img src="${logo}" alt="أكناف القربى" onerror="this.style.display='none'" />
+    </div>
+    <div class="lh-meta">
+      <div class="lh-meta-row"><span class="lh-meta-label">الـرقـم:</span>${metaVal(data.reference)}</div>
+      <div class="lh-meta-row"><span class="lh-meta-label">التـاريـخ:</span>${metaVal(data.date)}</div>
+      <div class="lh-meta-row"><span class="lh-meta-label">الموضوع:</span>${metaVal(data.subject)}</div>
+    </div>
+  </div>
+  <div class="lh-sep"></div>
+  <div class="lh-content">
+    <img class="lh-watermark" src="${wm}" alt="" aria-hidden="true"
+         onerror="this.src='${logo}'" />
+    <div class="lh-body">
+      <div class="recipient-block">
+        <p>السادة / ${data.recipient || ''}</p>
+        <p class="honorific">حفظهم الله،،</p>
+      </div>
+      ${data.subject ? `<div class="subject-heading">الموضوع: ${data.subject}</div>` : ''}
+      <div class="body-text">${data.body || ''}</div>
+      <div class="sign-row">
+        ${showStamp
+          ? `<div class="stamp-wrap"><img class="stamp-img" src="${origin}/brand/stamp.png" alt="الختم الرسمي" onerror="this.style.display='none'" /></div>`
+          : '<div></div>'}
+        <div class="sign-block">
+          ${data.signTitle ? `<p class="sign-title">${data.signTitle}</p>` : ''}
+          ${data.signName  ? `<p class="sign-name">${data.signName}</p>`   : ''}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="lh-footer">
+    <div class="lh-footer-wm">
+      <img src="${emblem}" onerror="this.style.display='none'" />
+      <img src="${emblem}" onerror="this.style.display='none'" />
+      <img src="${emblem}" onerror="this.style.display='none'" />
+      <img src="${emblem}" onerror="this.style.display='none'" />
+      <img src="${emblem}" onerror="this.style.display='none'" />
+      <img src="${emblem}" onerror="this.style.display='none'" />
+    </div>
+    <div class="lh-footer-col">
+      ${phone ? `<div class="lh-footer-item">
+        <img class="lh-ficon" src="${emblem}" onerror="this.style.display='none'" />
+        <span>${phone}</span>
+      </div>` : ''}
+      ${email ? `<div class="lh-footer-item">
+        <img class="lh-ficon" src="${emblem}" onerror="this.style.display='none'" />
+        <span>${email}</span>
+      </div>` : ''}
+    </div>
+    <div class="lh-footer-col">
+      ${licenseNum ? `<div class="lh-footer-item">
+        <img class="lh-ficon" src="${emblem}" onerror="this.style.display='none'" />
+        <span>رقم الترخيص ${licenseNum}</span>
+      </div>` : ''}
+      ${licenseDate ? `<div class="lh-footer-item">
+        <img class="lh-ficon" src="${emblem}" onerror="this.style.display='none'" />
+        <span>تاريخ الترخيص ${licenseDate}</span>
+      </div>` : ''}
+    </div>
+  </div>
+  <div class="bottom-bar"></div>
+</div>`
+}
+
+/* ─── Open print window ─────────────────────────────────────── */
+function printLetter(html: string, title: string) {
   const w = window.open('', '_blank', 'width=900,height=1200')
   if (!w) { alert('يرجى السماح بفتح النوافذ المنبثقة'); return }
-  const fundName    = settings.fund_name    || 'صندوق أكناف القربى'
-  const familyName  = settings.family_name  || 'عائلة البادي'
-  const phone       = settings.phone        || ''
-  const email       = settings.email        || ''
-  const licenseNum  = settings.license_number || ''
-  const supervised  = settings.supervised_by || 'المركز الوطني لتنمية القطاع غير الربحي'
-
   w.document.write(`<!DOCTYPE html>
 <html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>${title}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
 <style>${FUND_PRINT_CSS}</style></head>
 <body>${html}</body></html>`)
   w.document.close()
   w.onload = () => {
     const tryPrint = () => { w.focus(); w.print() }
-    if (w.document.fonts?.ready) {
-      w.document.fonts.ready.then(() => setTimeout(tryPrint, 200))
+    if ((w.document as any).fonts?.ready) {
+      ;(w.document as any).fonts.ready.then(() => setTimeout(tryPrint, 200))
     } else {
       setTimeout(tryPrint, 600)
     }
   }
 }
 
-function buildPrintHTML(data: FormData, settings: any) {
-  const fundName   = settings.fund_name   || 'صندوق أكناف القربى'
-  const familyName = settings.family_name || 'عائلة البادي'
-  const phone      = settings.phone       || ''
-  const email      = settings.email       || ''
-  const licenseNum = settings.license_number || ''
-
-  return `<div class="a4">
-  <div class="top-bar"><div class="navy"></div><div class="gold"></div></div>
-  <div class="header">
-    <div class="logo-wrap"><img src="/logo.png" alt="${fundName}" onerror="this.style.display='none'" /></div>
-    <div class="header-info">
-      <h1>${fundName} — ${familyName}</h1>
-      <p class="tagline">منظمة غير ربحية مرخصة</p>
-      ${licenseNum ? `<p class="license">رقم الترخيص: ${licenseNum}</p>` : ''}
-    </div>
-  </div>
-  <div class="content">
-    <div class="meta-row">
-      <span><strong>التاريخ:</strong>&nbsp;${data.date}</span>
-    </div>
-    <div class="recipient-box">
-      <h3>السادة / ${data.recipient}</h3>
-      <span class="honorific">المحترمين،،</span>
-    </div>
-    ${data.subject ? `<div class="subject-pill"><span>الموضوع: ${data.subject}</span></div>` : ''}
-    <div class="body-text">${data.body}</div>
-    <div class="sign-row">
-      <div class="sign-block">
-        <p class="sign-title">${data.signTitle}</p>
-        <p class="sign-name">${data.signName}</p>
-      </div>
-    </div>
-  </div>
-  <div class="footer">
-    <div class="footer-inner">
-      <div class="footer-left">
-        <div class="name">${fundName}</div>
-        <div class="addr">المملكة العربية السعودية</div>
-      </div>
-      <div class="footer-right" dir="ltr">
-        ${phone ? `<span><b>📞</b> ${phone}</span>` : ''}
-        ${email ? `<span><b>✉</b> ${email}</span>` : ''}
-      </div>
-    </div>
-  </div>
-</div>`
-}
-
-interface FormData {
-  date: string; recipient: string; subject: string
-  body: string; signName: string; signTitle: string
+/* ─── Types ─────────────────────────────────────────────────── */
+interface LetterForm {
+  reference: string
+  date:      string
+  recipient: string
+  subject:   string
+  body:      string
+  signName:  string
+  signTitle: string
 }
 
 const CATEGORIES = [
@@ -149,25 +306,32 @@ const QUILL_MODULES = {
   ],
 }
 
+/* ─── Component ─────────────────────────────────────────────── */
 export default function LetterGenerator() {
-  const [user,      setUser]      = useState<any>(null)
-  const [settings,  setSettings]  = useState<any>({})
-  const [templates, setTemplates] = useState<any[]>([])
-  const [loading,   setLoading]   = useState(true)
+  const [user,     setUser]     = useState<any>(null)
+  const [settings, setSettings] = useState<any>({})
+  const [templates,setTemplates]= useState<any[]>([])
+  const [loading,  setLoading]  = useState(true)
 
-  const [data, setData] = useState<FormData>({
-    date:      new Date().toISOString().split('T')[0],
-    recipient: 'اللجنة التنفيذية',
+  const [data, setData] = useState<LetterForm>({
+    reference: '',
+    date:      new Date().toLocaleDateString('ar-SA-u-ca-islamic', { year: 'numeric', month: '2-digit', day: '2-digit' }),
+    recipient: '',
     subject:   '',
     body:      '',
     signName:  '',
     signTitle: '',
   })
 
-  const [showSaveForm,  setShowSaveForm]  = useState(false)
-  const [saveMeta,      setSaveMeta]      = useState({ category: 'إدارية عامة', title: '' })
-  const [saving,        setSaving]        = useState(false)
-  const [seeding,       setSeeding]       = useState(false)
+  const [showSaveForm, setShowSaveForm] = useState(false)
+  const [saveMeta,     setSaveMeta]     = useState({ category: 'إدارية عامة', title: '' })
+  const [saving,       setSaving]       = useState(false)
+  const [seeding,      setSeeding]      = useState(false)
+  const [showStamp,    setShowStamp]    = useState(false)
+
+  // Roles allowed to use the official stamp
+  const STAMP_ROLES = ['admin', 'president', 'secretary']
+  const canUseStamp = user && STAMP_ROLES.includes(user.role)
 
   /* ── load user + settings + templates ── */
   useEffect(() => {
@@ -181,7 +345,7 @@ export default function LetterGenerator() {
         setData(prev => ({
           ...prev,
           signName:  me.user.full_name || '',
-          signTitle: me.user.role === 'secretary' ? 'أمين سر الصندوق'
+          signTitle: me.user.role === 'secretary'  ? 'أمين سر الصندوق'
             : me.user.role === 'treasurer' ? 'المدير المالي'
             : me.user.role === 'president' ? 'رئيس الصندوق'
             : me.user.role === 'admin'     ? 'مدير النظام'
@@ -240,9 +404,16 @@ export default function LetterGenerator() {
 
   /* ── print ── */
   function handlePrint() {
-    const html = buildPrintHTML(data, settings)
-    printLetter(html, `خطاب_${data.recipient || 'الصندوق'}`, settings)
+    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+    const html = buildPrintHTML(data, settings, origin, canUseStamp ? showStamp : false)
+    printLetter(html, `خطاب_${data.recipient || 'الصندوق'}`)
   }
+
+  /* ── Derived display values ── */
+  const phone      = settings.phone          || '053 96 69 988'
+  const email      = settings.email          || 'info@aknafalqurba.com'
+  const licenseNum = settings.license_number || '1200775200'
+  const licenseDate= settings.license_date   || '11/07/1447هـ'
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center py-24">
@@ -255,18 +426,19 @@ export default function LetterGenerator() {
     <>
       <style>{`
         .ql-container { font-family: 'Cairo', sans-serif !important; }
-        .ql-editor { min-height: 180px; font-size: 14px; direction: rtl; text-align: right; }
-        .quill-preview p { margin-bottom: 0.7rem; }
-        .quill-preview li { margin-bottom: 0.4rem; }
-        .quill-preview ol, .quill-preview ul { padding-right: 1.5rem; }
+        .ql-editor { min-height: 160px; font-size: 13px; direction: rtl; text-align: right; }
+        .lp p { margin-bottom: 0.65rem; }
+        .lp li { margin-bottom: 0.35rem; }
+        .lp ol, .lp ul { padding-right: 1.4rem; }
       `}</style>
 
       <div className="flex flex-col lg:flex-row gap-6 min-h-[820px]">
 
-        {/* ── Sidebar ────────────────────────────────────── */}
-        <div className="w-full lg:w-[360px] shrink-0 flex flex-col rounded-2xl shadow-2xl overflow-hidden bg-gradient-to-b from-[#0f1e38] to-[#0a0f1e] text-white border border-white/5">
+        {/* ── Sidebar ────────────────────────────────────────────── */}
+        <div className="w-full lg:w-[360px] shrink-0 flex flex-col rounded-2xl shadow-2xl overflow-hidden
+                        bg-gradient-to-b from-[#0f1e38] to-[#0a0f1e] text-white border border-white/5">
 
-          {/* Header */}
+          {/* Sidebar header */}
           <div className="px-6 pt-6 pb-5 border-b border-white/10 bg-black/20">
             <h2 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-l from-[#c5a059] to-yellow-200 flex items-center gap-2">
               <FilePen className="text-[#c5a059]" size={20} /> منشئ الخطابات الرسمية
@@ -274,10 +446,10 @@ export default function LetterGenerator() {
             <p className="text-xs text-white/50 mt-1">صندوق أكناف القربى — عائلة البادي</p>
           </div>
 
-          {/* Controls */}
+          {/* Sidebar controls */}
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
 
-            {/* Seed banner — shown when no templates loaded yet */}
+            {/* Seed banner */}
             {templates.length === 0 && (
               <div className="rounded-xl border border-dashed border-[#c5a059]/40 bg-[#c5a059]/5 p-4 text-center">
                 <p className="text-xs text-white/60 mb-3">لا توجد نماذج جاهزة — يمكنك تهيئة النماذج الرسمية للصندوق دفعةً واحدة</p>
@@ -308,7 +480,6 @@ export default function LetterGenerator() {
                 ))}
               </select>
 
-              {/* Delete button for templates */}
               {templates.length > 0 && (
                 <div className="mt-2 max-h-28 overflow-y-auto space-y-1 pr-0.5">
                   {templates.map(t => (
@@ -326,13 +497,22 @@ export default function LetterGenerator() {
 
             <div className="h-px bg-white/10" />
 
+            {/* Reference number */}
+            <div>
+              <label className="text-[10px] text-white/50 uppercase tracking-widest block mb-1">الرقم المرجعي</label>
+              <input type="text" value={data.reference}
+                onChange={e => setData({ ...data, reference: e.target.value })}
+                placeholder="مثال: ص/2025/001"
+                className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-sm text-white outline-none focus:border-[#c5a059] transition placeholder:text-white/25" />
+            </div>
+
             {/* Date */}
             <div>
               <label className="text-[10px] text-white/50 uppercase tracking-widest block mb-1">التاريخ</label>
-              <input type="date" value={data.date}
+              <input type="text" value={data.date}
                 onChange={e => setData({ ...data, date: e.target.value })}
-                className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-sm text-white outline-none focus:border-[#c5a059] transition"
-                style={{ colorScheme: 'dark' }} />
+                placeholder="مثال: 11/07/1447هـ"
+                className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-sm text-white outline-none focus:border-[#c5a059] transition" />
             </div>
 
             {/* Recipient */}
@@ -340,6 +520,7 @@ export default function LetterGenerator() {
               <label className="text-[10px] text-white/50 uppercase tracking-widest block mb-1">المستلم</label>
               <input type="text" value={data.recipient}
                 onChange={e => setData({ ...data, recipient: e.target.value })}
+                placeholder="مثال: اللجنة التنفيذية"
                 className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-sm text-white outline-none focus:border-[#c5a059] transition" />
             </div>
 
@@ -381,8 +562,29 @@ export default function LetterGenerator() {
               </div>
             </div>
 
+            {/* Stamp toggle — only for admin / president / secretary */}
+            {canUseStamp && (
+              <button
+                onClick={() => setShowStamp(s => !s)}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition font-bold text-sm ${
+                  showStamp
+                    ? 'bg-[#1a365d]/80 border-[#1a365d] text-white shadow-[0_0_14px_rgba(26,54,93,0.4)]'
+                    : 'bg-white/5 border-white/15 text-white/70 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Stamp size={15} className={showStamp ? 'text-[#c5a059]' : 'text-white/50'} />
+                  <span>الختم الرسمي للصندوق</span>
+                </div>
+                {/* Visual toggle pill */}
+                <div className={`w-9 h-5 rounded-full transition-colors relative ${showStamp ? 'bg-[#c5a059]' : 'bg-white/20'}`}>
+                  <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${showStamp ? 'right-0.5' : 'left-0.5'}`} />
+                </div>
+              </button>
+            )}
+
             {/* Save as template */}
-            <div className="border border-dashed border-white/20 rounded-xl p-4 bg-white/3">
+            <div className="border border-dashed border-white/20 rounded-xl p-4 bg-white/[0.02]">
               {!showSaveForm ? (
                 <button onClick={() => setShowSaveForm(true)}
                   className="w-full text-sm font-bold text-teal-400 hover:text-teal-300 transition flex items-center justify-center gap-2 py-1">
@@ -424,101 +626,173 @@ export default function LetterGenerator() {
           {/* Print button */}
           <div className="p-4 bg-black/30 border-t border-white/10">
             <button onClick={handlePrint}
-              className="w-full bg-gradient-to-r from-[#c5a059] to-yellow-600 text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition shadow-[0_0_20px_rgba(197,160,89,0.25)] hover:-translate-y-0.5 transform">
+              className="w-full bg-gradient-to-r from-[#c5a059] to-yellow-600 text-white py-3.5 rounded-xl font-bold
+                         flex items-center justify-center gap-2 hover:opacity-90 transition
+                         shadow-[0_0_20px_rgba(197,160,89,0.25)] hover:-translate-y-0.5 transform">
               <Printer size={18} /> طباعة / تصدير PDF
             </button>
           </div>
         </div>
 
-        {/* ── A4 Preview ────────────────────────────────── */}
-        <div className="flex-1 bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800 rounded-2xl overflow-y-auto p-6 md:p-10 flex justify-center items-start shadow-inner border border-slate-300 dark:border-slate-600">
+        {/* ── A4 Preview ─────────────────────────────────────────── */}
+        <div className="flex-1 bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800
+                        rounded-2xl overflow-y-auto p-6 md:p-10 flex justify-center items-start
+                        shadow-inner border border-slate-300 dark:border-slate-600">
+          {/* A4 sheet */}
           <div
-            className="bg-white text-black shadow-[0_20px_60px_rgba(0,0,0,0.18)] ring-1 ring-slate-900/5 overflow-hidden flex flex-col"
+            className="bg-white text-black shadow-[0_20px_60px_rgba(0,0,0,0.18)] ring-1 ring-slate-900/5 flex flex-col"
             style={{ width: '210mm', minHeight: '297mm' }}
           >
-            {/* Top color bar */}
-            <div className="h-2.5 flex">
-              <div className="bg-[#1a365d]" style={{ flex: 3 }} />
-              <div className="bg-[#c5a059]" style={{ flex: 1 }} />
+            {/* ── Top navy bar ── */}
+            <div className="h-[13px] bg-[#1a365d] shrink-0" />
+
+            {/* ── Header ── */}
+            <div className="flex justify-between items-center px-9 pt-5 pb-4 shrink-0">
+              {/* Logo — right side (RTL start) */}
+              <img
+                src="/brand/logo.png"
+                alt="أكناف القربى"
+                className="h-[76px] object-contain"
+              />
+              {/* Meta — left side */}
+              <div className="text-right space-y-[6px]">
+                {[
+                  { label: 'الـرقـم:', value: data.reference },
+                  { label: 'التـاريـخ:', value: data.date },
+                  { label: 'الموضوع:', value: data.subject },
+                ].map(({ label, value }) => (
+                  <div key={label} className="flex items-baseline gap-2 text-[12.5px] justify-end">
+                    <span className="font-semibold text-[#1a365d]">
+                      {value || <span className="inline-block min-w-[80px] border-b border-slate-300">&nbsp;</span>}
+                    </span>
+                    <span className="font-bold text-slate-600 min-w-[62px] text-right tracking-wide">{label}</span>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            {/* Header */}
-            <div className="px-10 pt-8 pb-5 flex justify-between items-center border-b border-slate-100 relative">
-              <div className="text-right">
-                {/* Fund logo placeholder */}
-                <div className="h-16 w-16 rounded-full bg-[#1a365d]/10 flex items-center justify-center">
-                  <span className="text-[#1a365d] font-black text-xl">ص</span>
+            {/* ── Separator ── */}
+            <div className="mx-9 shrink-0" style={{ height: '1.5px', background: '#1a365d', opacity: 0.65 }} />
+
+            {/* ── Content area ── */}
+            <div className="flex-1 px-9 pt-7 pb-4 relative overflow-hidden">
+              {/* Watermark — right side, faint */}
+              <img
+                src="/brand/watermark.png"
+                alt=""
+                aria-hidden
+                className="absolute top-1/2 -translate-y-1/2 pointer-events-none select-none"
+                style={{
+                  right: '-12px',
+                  width: '255px',
+                  opacity: 0.065,
+                  filter: 'sepia(35%) brightness(1.15)',
+                }}
+                onError={(e) => {
+                  ;(e.currentTarget as HTMLImageElement).src = '/brand/logo.png'
+                }}
+              />
+
+              {/* Letter content */}
+              <div className="relative z-10">
+                {/* Recipient */}
+                <div className="mb-5">
+                  <p className="text-[13.5px] font-semibold text-[#1a365d] leading-[1.8]">
+                    السادة / {data.recipient || <span className="text-slate-300 font-normal">أدخل اسم المستلم</span>}
+                  </p>
+                  <p className="text-[13px] text-slate-500">حفظهم الله،،</p>
+                </div>
+
+                {/* Subject heading */}
+                {data.subject && (
+                  <div className="text-center text-[14px] font-black text-[#1a365d] py-2 mb-4"
+                    style={{ borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>
+                    الموضوع: {data.subject}
+                  </div>
+                )}
+
+                {/* Body */}
+                <div
+                  className="lp text-justify text-slate-800 text-[13.5px]"
+                  style={{ lineHeight: 2.3, wordBreak: 'break-word', fontFamily: 'inherit' }}
+                  dangerouslySetInnerHTML={{
+                    __html: data.body ||
+                      '<p style="color:#cbd5e1;font-style:italic">ابدأ بكتابة نص الخطاب في اللوحة الجانبية…</p>',
+                  }}
+                />
+
+                {/* Signature + Stamp row — ltr so stamp=left, signature=right */}
+                <div className="mt-12 flex items-end justify-between min-h-[88px]" style={{ direction: 'ltr' }}>
+                  {/* Stamp — physical LEFT */}
+                  {canUseStamp && showStamp
+                    ? <img src="/brand/stamp.png" alt="الختم الرسمي" className="w-[120px] object-contain opacity-90" />
+                    : <div />
+                  }
+
+                  {/* Signature — physical RIGHT */}
+                  <div className="text-center min-w-[170px]" style={{ direction: 'rtl' }}>
+                    {data.signTitle && (
+                      <p className="text-[12px] font-bold text-[#1a365d] mb-[5px]">{data.signTitle}</p>
+                    )}
+                    {data.signName && (
+                      <p className="text-[15px] font-black text-[#1a365d] pt-[7px] m-0"
+                        style={{ borderTop: '1.5px solid #cbd5e1' }}>
+                        {data.signName}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
-              <div className="text-left border-l-4 border-[#c5a059] pl-5">
-                <h1 className="text-2xl font-black text-[#1a365d]">
-                  {settings.fund_name || 'صندوق أكناف القربى'} — {settings.family_name || 'عائلة البادي'}
-                </h1>
-                <p className="text-[#c5a059] font-bold text-xs mt-1">منظمة غير ربحية مرخصة</p>
-                {settings.license_number && (
-                  <p className="text-slate-400 text-[10px] mt-0.5 font-mono">رقم الترخيص: {settings.license_number}</p>
+            </div>
+
+            {/* ── Footer — beige ── */}
+            <div
+              className="relative px-9 py-[14px] flex justify-between items-center shrink-0 overflow-hidden"
+              style={{ background: '#ede8db' }}
+            >
+              {/* Footer background watermarks */}
+              <div className="absolute inset-0 flex items-center justify-center gap-5 opacity-[0.11] pointer-events-none select-none">
+                {[...Array(6)].map((_, i) => (
+                  <img key={i} src="/brand/emblem.png" alt="" className="h-[48px]"
+                    style={{ filter: 'sepia(50%) brightness(0.85)' }} />
+                ))}
+              </div>
+
+              {/* Left col: phone + email */}
+              <div className="relative z-10 flex flex-col gap-[5px]">
+                {phone && (
+                  <div className="flex items-center gap-[7px] text-[11.5px] font-semibold text-[#1a365d]" dir="ltr">
+                    <img src="/brand/emblem.png" alt="" className="w-[17px] h-[17px] object-contain opacity-80" />
+                    <span>{phone}</span>
+                  </div>
+                )}
+                {email && (
+                  <div className="flex items-center gap-[7px] text-[11.5px] font-semibold text-[#1a365d]" dir="ltr">
+                    <img src="/brand/emblem.png" alt="" className="w-[17px] h-[17px] object-contain opacity-80" />
+                    <span>{email}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Right col: license info */}
+              <div className="relative z-10 flex flex-col gap-[5px]">
+                {licenseNum && (
+                  <div className="flex items-center gap-[7px] text-[11.5px] font-semibold text-[#1a365d]">
+                    <img src="/brand/emblem.png" alt="" className="w-[17px] h-[17px] object-contain opacity-80" />
+                    <span>رقم الترخيص {licenseNum}</span>
+                  </div>
+                )}
+                {licenseDate && (
+                  <div className="flex items-center gap-[7px] text-[11.5px] font-semibold text-[#1a365d]">
+                    <img src="/brand/emblem.png" alt="" className="w-[17px] h-[17px] object-contain opacity-80" />
+                    <span>تاريخ الترخيص {licenseDate}</span>
+                  </div>
                 )}
               </div>
             </div>
 
-            {/* Body */}
-            <div className="flex-1 px-10 pt-7 pb-6 relative">
-              {/* Watermark */}
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.03] text-[160px] font-black text-[#1a365d] pointer-events-none select-none leading-none">
-                ص
-              </div>
-
-              {/* Date */}
-              <div className="flex justify-end mb-8 pb-4 border-b border-dashed border-slate-200 text-sm text-slate-600">
-                <span><strong>التاريخ:</strong> {data.date}</span>
-              </div>
-
-              {/* Recipient */}
-              <div className="border-r-4 border-[#c5a059] pr-4 py-2 bg-gradient-to-l from-slate-50 to-transparent rounded-l-2xl mb-8">
-                <h3 className="text-xl font-bold text-[#1a365d] leading-relaxed">
-                  السادة / {data.recipient}
-                  <span className="block text-[#c5a059] text-lg mt-1">المحترمين،،</span>
-                </h3>
-              </div>
-
-              {/* Subject */}
-              {data.subject && (
-                <div className="flex justify-center mb-10">
-                  <div className="border-2 border-[#1a365d]/10 px-10 py-2.5 rounded-full bg-white shadow-sm">
-                    <span className="font-black text-lg text-[#1a365d]">الموضوع: {data.subject}</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Letter body */}
-              <div
-                className="text-justify leading-[2.4] text-slate-800 text-[15px] quill-preview"
-                style={{ fontFamily: 'serif', wordBreak: 'break-word' }}
-                dangerouslySetInnerHTML={{ __html: data.body || '<p class="text-slate-400 italic">ابدأ بكتابة نص الخطاب في اللوحة الجانبية…</p>' }}
-              />
-
-              {/* Signature */}
-              <div className="mt-16 flex justify-end px-6 min-h-[100px] items-end">
-                <div className="text-center">
-                  <p className="font-bold text-[#c5a059] mb-2 text-sm tracking-wide">{data.signTitle}</p>
-                  <p className="font-black text-xl text-[#1a365d] border-t-2 border-slate-200 pt-3 min-w-[200px]">{data.signName}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="mt-auto px-8 pb-8">
-              <div className="bg-[#1a365d] rounded-2xl px-6 py-4 flex justify-between items-center text-white">
-                <div>
-                  <p className="font-bold text-[#c5a059] text-sm">{settings.fund_name || 'صندوق أكناف القربى'}</p>
-                  <p className="text-white/70 text-xs mt-0.5">المملكة العربية السعودية</p>
-                </div>
-                <div className="text-left text-xs space-y-1" dir="ltr">
-                  {settings.phone && <span className="block text-white/80"><b className="text-[#c5a059]">📞</b> {settings.phone}</span>}
-                  {settings.email && <span className="block text-white/80"><b className="text-[#c5a059]">✉</b> {settings.email}</span>}
-                </div>
-              </div>
-            </div>
+            {/* ── Bottom navy bar ── */}
+            <div className="h-[13px] bg-[#1a365d] shrink-0" />
           </div>
         </div>
       </div>
