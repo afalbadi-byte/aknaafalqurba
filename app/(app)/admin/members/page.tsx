@@ -5,6 +5,7 @@ import { api } from '@/lib/api-client'
 import { ROLE_LABELS, STATUS_LABELS, statusBadge, formatDate } from '@/lib/utils'
 import { CheckCircle, UserCog, Ban, ShieldCheck, Search, MailCheck } from 'lucide-react'
 import Modal from '@/components/modal'
+import { Avatar } from '@/components/app-shell'
 
 const TOP_ADMIN = ['admin','president']
 
@@ -93,15 +94,20 @@ export default function Members() {
                 {filtered.map(m => (
                   <tr key={m.id} className="hover:bg-brand-50/30 dark:hover:bg-brand-800/40">
                     <td className="p-3">
-                      <div className="font-bold text-brand-950 dark:text-brand-50">{m.full_name}</div>
-                      {m.email && (
-                        <div className="text-xs text-brand-500 dark:text-brand-400 flex items-center gap-1">
-                          {m.email}
-                          {!m.email_verified && (
-                            <span className="text-amber-500 font-semibold">(غير مؤكد)</span>
+                      <div className="flex items-center gap-3">
+                        <Avatar name={m.full_name} src={m.avatar} size={36} />
+                        <div>
+                          <div className="font-bold text-brand-950 dark:text-brand-50">{m.full_name}</div>
+                          {m.email && (
+                            <div className="text-xs text-brand-500 dark:text-brand-400 flex items-center gap-1">
+                              {m.email}
+                              {!m.email_verified && (
+                                <span className="text-amber-500 font-semibold">(غير مؤكد)</span>
+                              )}
+                            </div>
                           )}
                         </div>
-                      )}
+                      </div>
                     </td>
                     <td className="p-3 text-brand-700 dark:text-brand-300">{m.branch || '—'}</td>
                     <td className="p-3 font-mono text-xs text-brand-600 dark:text-brand-400">{m.phone}</td>

@@ -9,11 +9,11 @@ export async function GET(req: NextRequest) {
   const status = new URL(req.url).searchParams.get('status')
   const rows = status
     ? await sql`
-        SELECT id, full_name, phone, email, email_verified, branch, city, role, status, created_at
+        SELECT id, full_name, phone, email, email_verified, branch, city, role, status, avatar, created_at
         FROM members WHERE status = ${status} ORDER BY created_at DESC
       `
     : await sql`
-        SELECT id, full_name, phone, email, email_verified, branch, city, role, status, created_at
+        SELECT id, full_name, phone, email, email_verified, branch, city, role, status, avatar, created_at
         FROM members ORDER BY created_at DESC
       `
   return jsonOK({ members: rows })
