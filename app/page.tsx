@@ -38,6 +38,7 @@ export default async function LandingPage() {
         <div className="container mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Logo />
           <nav className="flex items-center gap-1 sm:gap-2">
+            <Link href="/about-us"    className="btn-ghost hidden sm:inline-flex">من نحن</Link>
             <Link href="/public-news" className="btn-ghost hidden sm:inline-flex">آخر الأخبار</Link>
             <DarkToggle />
             {user ? (
