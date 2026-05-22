@@ -62,8 +62,8 @@ export default function Settings() {
   }, [])
   const set = (k: string, v: string) => setData((d: any) => ({ ...d, [k]: v }))
 
-  // Compress license image to Base64
-  function compressImage(file: File, maxPx = 1200): Promise<string> {
+  // Compress raster images to save DB space
+  function compressImage(file: File, maxPx = 1400): Promise<string> {
     return new Promise((resolve, reject) => {
       const img = new Image()
       const url = URL.createObjectURL(file)
@@ -80,19 +80,33 @@ export default function Settings() {
           const reader = new FileReader()
           reader.onload = () => resolve(reader.result as string)
           reader.readAsDataURL(b)
-        }, 'image/jpeg', 0.85)
+        }, 'image/jpeg', 0.88)
       }
       img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('فشل تحميل الصورة')) }
       img.src = url
     })
   }
 
+  // Read any file as base64 data URL (for PDF / Word / etc.)
+  function readAsDataUrl(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = () => reject(new Error('فشل قراءة الملف'))
+      reader.readAsDataURL(file)
+    })
+  }
+
   async function handleLicenseUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    if (file.size > 15 * 1024 * 1024) { alert('حجم الملف يجب أن يكون أقل من ١٥ ميجابايت'); return }
     setLicBusy(true)
     try {
-      const dataUrl = await compressImage(file)
+      // Compress only raster images; everything else (PDF, TIFF, Word…) goes as-is
+      const dataUrl = file.type.startsWith('image/') && !file.type.includes('tiff')
+        ? await compressImage(file)
+        : await readAsDataUrl(file)
       set('license_image', dataUrl)
     } catch (err: any) { alert(err.message) }
     finally { setLicBusy(false); if (licFileRef.current) licFileRef.current.value = '' }
@@ -140,29 +154,30 @@ export default function Settings() {
         </div>
         <div className="p-6 space-y-4">
           {data.license_image ? (
-            <div className="relative inline-block">
-              <img src={data.license_image} alt="صورة الترخيص" className="max-h-64 rounded-xl border border-brand-200 dark:border-brand-700 object-contain" />
-              <button
-                onClick={() => set('license_image', '')}
-                className="absolute top-2 left-2 p-1.5 bg-red-600 text-white rounded-full hover:bg-red-700"
-                title="حذف الصورة"
-              >
-                <X size={14} />
-              </button>
+            <div className="relative">
+              {data.license_image.startsWith('data:application/pdf') || data.license_image.startsWith('data:application/octet') ? (
+                <div className="relative">
+                  <embed src={data.license_image} type="application/pdf" className="w-full rounded-xl border border-brand-200 dark:border-brand-700" style={{ height: 400 }} />
+                  <button onClick={() => set('license_image', '')} className="absolute top-2 left-2 p-1.5 bg-red-600 text-white rounded-full hover:bg-red-700" title="حذف الملف"><X size={14} /></button>
+                </div>
+              ) : (
+                <div className="relative inline-block">
+                  <img src={data.license_image} alt="صورة الترخيص" className="max-h-64 rounded-xl border border-brand-200 dark:border-brand-700 object-contain" />
+                  <button onClick={() => set('license_image', '')} className="absolute top-2 left-2 p-1.5 bg-red-600 text-white rounded-full hover:bg-red-700" title="حذف الصورة"><X size={14} /></button>
+                </div>
+              )}
             </div>
           ) : (
-            <div className="text-sm text-brand-500 dark:text-brand-400">لم يتم رفع صورة الترخيص بعد</div>
+            <div className="text-sm text-brand-500 dark:text-brand-400">لم يتم رفع ملف الترخيص بعد</div>
           )}
-          <input ref={licFileRef} type="file" accept="image/*" hidden onChange={handleLicenseUpload} />
-          <button
-            type="button"
-            onClick={() => licFileRef.current?.click()}
-            disabled={licBusy}
-            className="btn-secondary"
-          >
-            {licBusy ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />}
-            {data.license_image ? 'تغيير الصورة' : 'رفع صورة الترخيص'}
-          </button>
+          <input ref={licFileRef} type="file" accept="*" hidden onChange={handleLicenseUpload} />
+          <div className="flex items-center gap-3 flex-wrap">
+            <button type="button" onClick={() => licFileRef.current?.click()} disabled={licBusy} className="btn-secondary">
+              {licBusy ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />}
+              {data.license_image ? 'تغيير الملف' : 'رفع ملف الترخيص'}
+            </button>
+            <span className="text-xs text-brand-400 dark:text-brand-500">PDF أو صورة أو أي ملف — حتى ١٥ ميجابايت</span>
+          </div>
         </div>
       </div>
 
