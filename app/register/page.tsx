@@ -17,14 +17,20 @@ const HIJRI_MONTHS = [
   'رمضان','شوال','ذو القعدة','ذو الحجة',
 ]
 
-function hijriToGregorian(hY: number, hM: number, hD: number): string {
-  const jdn =
+/* ─── Hijri → JDN  (Meeus "Astronomical Algorithms" tabular formula) ─── */
+function hijriToJDN(hY: number, hM: number, hD: number): number {
+  return (
+    Math.floor((11 * hY + 3) / 30) +
+    354 * hY +
+    30 * hM -
+    Math.floor((hM - 1) / 2) +
     hD +
-    Math.ceil(29.5001 * (hM - 1)) +
-    (hY - 1) * 354 +
-    Math.floor((3 + 11 * hY) / 30) +
     1948440 - 385
+  )
+}
 
+/* ─── JDN → Gregorian ─── */
+function jdnToGregorian(jdn: number): string {
   let l = jdn + 68569
   const n = Math.floor((4 * l) / 146097)
   l -= Math.floor((146097 * n + 3) / 4)
@@ -37,30 +43,45 @@ function hijriToGregorian(hY: number, hM: number, hD: number): string {
   return `${gY}-${String(gM).padStart(2, '0')}-${String(gD).padStart(2, '0')}`
 }
 
-function gregorianToHijri(iso: string): { y: number; m: number; d: number } | null {
-  if (!iso) return null
-  const [gy, gm, gd] = iso.split('-').map(Number)
-  const jdn =
-    Math.floor((1461 * (gy + 4800 + Math.floor((gm - 14) / 12))) / 4) +
-    Math.floor((367 * (gm - 2 - 12 * Math.floor((gm - 14) / 12))) / 12) -
-    Math.floor((3 * Math.floor((gy + 4900 + Math.floor((gm - 14) / 12)) / 100)) / 4) +
-    gd - 32075
+function hijriToGregorian(hY: number, hM: number, hD: number): string {
+  return jdnToGregorian(hijriToJDN(hY, hM, hD))
+}
 
+/* ─── Gregorian → JDN  (uses Math.trunc — NOT Math.floor — for integer div) ─── */
+function gregorianToJDN(gy: number, gm: number, gd: number): number {
+  // (gm-14)/12 can be negative; the algorithm requires truncation-toward-zero
+  const t = Math.trunc((gm - 14) / 12)
+  return (
+    Math.trunc((1461 * (gy + 4800 + t)) / 4) +
+    Math.trunc((367 * (gm - 2 - 12 * t)) / 12) -
+    Math.trunc((3 * Math.trunc((gy + 4900 + t) / 100)) / 4) +
+    gd - 32075
+  )
+}
+
+/* ─── JDN → Hijri ─── */
+function jdnToHijri(jdn: number): { y: number; m: number; d: number } {
   const l  = jdn - 1948440 + 10632
   const n2 = Math.floor((l - 1) / 10631)
   const l2 = l - 10631 * n2 + 354
   const j2 =
     Math.floor((10985 - l2) / 5316) * Math.floor((50 * l2) / 17719) +
-    Math.floor(l2 / 5670) * Math.floor((43 * l2) / 15238)
+    Math.floor(l2 / 5670)           * Math.floor((43 * l2) / 15238)
   const l3 =
     l2 -
     Math.floor((30 - j2) / 15) * Math.floor((17719 * j2) / 50) -
-    Math.floor(j2 / 16) * Math.floor((15238 * j2) / 43) +
+    Math.floor(j2 / 16)        * Math.floor((15238 * j2) / 43) +
     29
   const hM = Math.floor((24 * l3) / 709)
   const hD = l3 - Math.floor((709 * hM) / 24)
   const hY = 30 * n2 + j2 - 30
   return { y: hY, m: hM, d: hD }
+}
+
+function gregorianToHijri(iso: string): { y: number; m: number; d: number } | null {
+  if (!iso) return null
+  const [gy, gm, gd] = iso.split('-').map(Number)
+  return jdnToHijri(gregorianToJDN(gy, gm, gd))
 }
 
 /* ─────────────────────────────────────────────────────
