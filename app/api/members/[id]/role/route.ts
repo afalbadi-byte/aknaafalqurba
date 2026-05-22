@@ -3,7 +3,7 @@ import { sql } from '@/lib/db'
 import { requireRole, TOP_ADMIN_ROLES, jsonOK, jsonError, parseJson } from '@/lib/auth'
 import { log, getIP } from '@/lib/log'
 
-const VALID = ['member', 'aid_committee', 'treasurer', 'president', 'admin']
+const VALID = ['member', 'aid_committee', 'secretary', 'treasurer', 'president', 'admin']
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { user, error } = await requireRole(TOP_ADMIN_ROLES)

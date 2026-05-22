@@ -125,6 +125,10 @@ const MIGRATIONS: { name: string; up: string }[] = [
     up: `ALTER TABLE payments ADD COLUMN IF NOT EXISTS ai_extracted JSONB;`,
   },
   {
+    name: '018-member-role-secretary',
+    up: `ALTER TYPE member_role ADD VALUE IF NOT EXISTS 'secretary';`,
+  },
+  {
     name: '008-activity-logs',
     up: `
       CREATE TABLE IF NOT EXISTS activity_logs (
@@ -242,6 +246,14 @@ export async function GET() {
             WHERE table_name = 'payments' AND column_name = 'ai_extracted'
           `
           return { name: m.name, status: col ? 'applied' : 'pending' }
+        }
+        if (m.name.startsWith('018')) {
+          const [val] = await sql`
+            SELECT enumlabel FROM pg_enum
+            JOIN pg_type ON pg_type.oid = pg_enum.enumtypid
+            WHERE pg_type.typname = 'member_role' AND enumlabel = 'secretary'
+          `
+          return { name: m.name, status: val ? 'applied' : 'pending' }
         }
         if (m.name.startsWith('008')) {
           const [tbl] = await sql`

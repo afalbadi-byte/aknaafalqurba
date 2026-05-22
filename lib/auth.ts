@@ -23,7 +23,7 @@ export type Member = {
   theme: 'light' | 'dark' | 'system'
   gender: 'male' | 'female' | null
   generation_number: number | null
-  role: 'member' | 'aid_committee' | 'treasurer' | 'president' | 'admin'
+  role: 'member' | 'aid_committee' | 'secretary' | 'treasurer' | 'president' | 'admin'
   status: 'pending' | 'active' | 'suspended'
   notes: string | null
   created_at: string
@@ -137,7 +137,7 @@ export async function requireRole(roles: Member['role'][]) {
   return { user, error: null as NextResponse | null }
 }
 
-export const COMMITTEE_ROLES: Member['role'][] = ['admin', 'president', 'treasurer', 'aid_committee']
+export const COMMITTEE_ROLES: Member['role'][] = ['admin', 'president', 'treasurer', 'aid_committee', 'secretary']
 export const TREASURY_ROLES:  Member['role'][] = ['admin', 'president', 'treasurer']
 export const TOP_ADMIN_ROLES: Member['role'][] = ['admin', 'president']
 

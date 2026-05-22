@@ -3,7 +3,7 @@
 --  Postgres schema for Vercel Postgres / Neon / Supabase
 -- ============================================================
 
-CREATE TYPE member_role   AS ENUM ('member','aid_committee','treasurer','president','admin');
+CREATE TYPE member_role   AS ENUM ('member','aid_committee','secretary','treasurer','president','admin');
 CREATE TYPE member_status AS ENUM ('pending','active','suspended');
 CREATE TYPE payment_type  AS ENUM ('subscription','donation','zakat','other');
 CREATE TYPE payment_method AS ENUM ('bank_transfer','stc_pay','gateway','cash');

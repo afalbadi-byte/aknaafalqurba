@@ -6,7 +6,7 @@ import {
   formatMoney, formatDate, statusBadge, STATUS_LABELS,
   PAYMENT_METHODS, PAYMENT_TYPES,
 } from '@/lib/utils'
-import { CheckCircle, XCircle, Eye, Trash2, Sparkles } from 'lucide-react'
+import { CheckCircle, XCircle, Eye, Trash2, Sparkles, Save } from 'lucide-react'
 import Modal from '@/components/modal'
 
 export default function AdminPayments() {
@@ -15,8 +15,11 @@ export default function AdminPayments() {
   const [filter,  setFilter]  = useState(params.get('status') || '')
   const [loading, setLoading] = useState(true)
   const [loadErr, setLoadErr] = useState('')
-  const [viewing, setViewing] = useState<any>(null)
-  const [notes,   setNotes]   = useState('')
+  const [viewing,   setViewing]   = useState<any>(null)
+  const [notes,     setNotes]     = useState('')
+  const [editAmount,    setEditAmount]    = useState('')
+  const [editReference, setEditReference] = useState('')
+  const [saving,    setSaving]    = useState(false)
 
   useEffect(() => { load() }, [filter])
   async function load() {
@@ -31,6 +34,26 @@ export default function AdminPayments() {
       setLoading(false)
     }
   }
+  function openViewing(p: any) {
+    setViewing(p)
+    setNotes(p.reviewer_notes || '')
+    setEditAmount(String(p.amount))
+    setEditReference(p.reference || '')
+  }
+
+  async function saveEdits() {
+    if (!viewing) return
+    setSaving(true)
+    try {
+      await api.payments.edit(viewing.id, {
+        amount:    editAmount    !== String(viewing.amount)    ? Number(editAmount)    : undefined,
+        reference: editReference !== (viewing.reference || '') ? editReference        : undefined,
+      })
+      setViewing((v: any) => ({ ...v, amount: editAmount, reference: editReference || null }))
+      load()
+    } finally { setSaving(false) }
+  }
+
   async function review(id: number, decision: string) {
     await api.payments.review(id, decision, notes)
     setViewing(null); setNotes(''); load()
@@ -102,7 +125,7 @@ export default function AdminPayments() {
                     <td className="p-3"><span className={statusBadge(p.status)}>{STATUS_LABELS[p.status]}</span></td>
                     <td className="p-3">
                       <div className="flex items-center gap-1">
-                        <button onClick={() => { setViewing(p); setNotes(p.reviewer_notes || '') }}
+                        <button onClick={() => openViewing(p)}
                           className="p-2 text-brand-700 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-brand-800 rounded" title="عرض"><Eye size={16} /></button>
                         {p.status === 'pending' && (
                           <>
@@ -130,13 +153,30 @@ export default function AdminPayments() {
             <div className="grid sm:grid-cols-2 gap-3 text-sm">
               <KV k="العضو" v={viewing.full_name} />
               <KV k="الجوال" v={viewing.phone} mono />
-              <KV k="المبلغ" v={formatMoney(viewing.amount)} bold />
               <KV k="النوع" v={PAYMENT_TYPES[viewing.payment_type]} />
               <KV k="الطريقة" v={PAYMENT_METHODS[viewing.method]} />
-              <KV k="المرجع" v={viewing.reference || '—'} mono />
               <KV k="الفترة" v={viewing.period_year ? `${viewing.period_month}/${viewing.period_year}` : '—'} />
               <KV k="التاريخ" v={formatDate(viewing.created_at, true)} />
             </div>
+            {/* Editable fields — المدير المالي */}
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="label text-xs">المبلغ (ر.س)</label>
+                <input className="input" type="number" step="0.01" min="1"
+                  value={editAmount} onChange={e => setEditAmount(e.target.value)} />
+              </div>
+              <div>
+                <label className="label text-xs">رقم المرجع / العملية</label>
+                <input className="input font-mono" placeholder="REF…"
+                  value={editReference} onChange={e => setEditReference(e.target.value)} />
+              </div>
+            </div>
+            {(editAmount !== String(viewing.amount) || editReference !== (viewing.reference || '')) && (
+              <button onClick={saveEdits} disabled={saving}
+                className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg bg-brand-950 dark:bg-gold-500 text-white dark:text-brand-950 font-semibold hover:opacity-90 transition w-fit">
+                <Save size={14} /> {saving ? 'جاري الحفظ…' : 'حفظ التعديلات'}
+              </button>
+            )}
             {/* AI-extracted receipt data */}
             {viewing.ai_extracted && (() => {
               const ai = typeof viewing.ai_extracted === 'string'

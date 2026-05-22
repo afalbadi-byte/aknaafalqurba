@@ -40,7 +40,7 @@ const ADMIN_NAV = [
   { to: '/admin/migrate',   label: 'مهاجرات DB',       icon: Database },
   { to: '/admin/logs',      label: 'سجل النشاط',       icon: ClipboardList },
 ]
-const COMMITTEE = ['admin', 'president', 'treasurer', 'aid_committee']
+const COMMITTEE = ['admin', 'president', 'treasurer', 'aid_committee', 'secretary']
 
 const THEME_ICONS: Record<Theme, React.ElementType> = { light: Sun, dark: Moon, system: Monitor }
 const THEME_CYCLE: Theme[] = ['light', 'dark', 'system']

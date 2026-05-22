@@ -40,7 +40,7 @@ export async function notifyCommittee(
 ) {
   const rows = await sql<{ id: number }[]>`
     SELECT id FROM members
-    WHERE role IN ('admin','president','treasurer','aid_committee')
+    WHERE role IN ('admin','president','treasurer','aid_committee','secretary')
       AND status = 'active'
   `
   await Promise.all(rows.map(r => notify(r.id, type, title, body, link)))

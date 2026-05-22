@@ -8,7 +8,7 @@ import {
 } from '@/lib/utils'
 import { ArrowRight, Send, Paperclip, Printer } from 'lucide-react'
 
-const COMMITTEE = ['admin','president','treasurer','aid_committee']
+const COMMITTEE = ['admin','president','treasurer','aid_committee','secretary']
 
 export default function AidDetail() {
   const { id } = useParams<{ id: string }>()

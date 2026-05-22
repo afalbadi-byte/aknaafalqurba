@@ -244,10 +244,20 @@ export default function PaymentNew() {
           <div>
             <label className="label">
               المبلغ (ر.س) *
-              {extracted?.amount && <span className="text-emerald-600 dark:text-emerald-400 mr-1 text-xs font-normal">(مُستخرج)</span>}
+              {extracted?.amount != null && (
+                <span className="text-emerald-600 dark:text-emerald-400 mr-1 text-xs font-normal">✓ مُستخرج من الإيصال</span>
+              )}
             </label>
-            <input className="input" type="number" min="1" step="0.01" required
-              value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
+            <input
+              className={`input ${extracted?.amount != null ? 'bg-emerald-50/50 dark:bg-emerald-900/20 cursor-not-allowed' : ''}`}
+              type="number" min="1" step="0.01" required
+              value={form.amount}
+              readOnly={extracted?.amount != null}
+              onChange={e => extracted?.amount == null && setForm({ ...form, amount: e.target.value })}
+            />
+            {extracted?.amount != null && (
+              <p className="text-xs text-brand-500 dark:text-brand-400 mt-1">يُعدَّل من قِبَل المدير المالي عند المراجعة</p>
+            )}
           </div>
           <div>
             <label className="label">نوع الدفعة</label>
@@ -271,10 +281,20 @@ export default function PaymentNew() {
           <div className="sm:col-span-2">
             <label className="label">
               رقم المرجع / العملية
-              {extracted?.reference && <span className="text-emerald-600 dark:text-emerald-400 mr-1 text-xs font-normal">(مُستخرج)</span>}
+              {extracted?.reference && (
+                <span className="text-emerald-600 dark:text-emerald-400 mr-1 text-xs font-normal">✓ مُستخرج من الإيصال</span>
+              )}
             </label>
-            <input className="input font-mono" placeholder="REF12345"
-              value={form.reference} onChange={e => setForm({ ...form, reference: e.target.value })} />
+            <input
+              className={`input font-mono ${extracted?.reference ? 'bg-emerald-50/50 dark:bg-emerald-900/20 cursor-not-allowed' : ''}`}
+              placeholder="REF12345"
+              value={form.reference}
+              readOnly={!!extracted?.reference}
+              onChange={e => !extracted?.reference && setForm({ ...form, reference: e.target.value })}
+            />
+            {extracted?.reference && (
+              <p className="text-xs text-brand-500 dark:text-brand-400 mt-1">يُعدَّل من قِبَل المدير المالي عند المراجعة</p>
+            )}
           </div>
           <div className="sm:col-span-2">
             <label className="label">ملاحظات</label>

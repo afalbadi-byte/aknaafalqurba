@@ -6,24 +6,30 @@ import { Check, Minus, Loader2, X, UserCog, ShieldPlus } from 'lucide-react'
 import { Avatar } from '@/components/app-shell'
 
 /* ── Permission matrix definition ── */
-const ROLES = ['member', 'aid_committee', 'treasurer', 'president', 'admin'] as const
+const ROLES = ['member', 'aid_committee', 'secretary', 'treasurer', 'president', 'admin'] as const
 type Role = typeof ROLES[number]
 
 const PERMISSIONS: { label: string; section: string; roles: Role[] }[] = [
   // ── عضو عادي ──
-  { section: 'الخدمات الأساسية', label: 'عرض الأخبار والإعلانات',  roles: ['member','aid_committee','treasurer','president','admin'] },
-  { section: 'الخدمات الأساسية', label: 'تقديم دفعة اشتراك / تبرع', roles: ['member','aid_committee','treasurer','president','admin'] },
-  { section: 'الخدمات الأساسية', label: 'تقديم طلب دعم',          roles: ['member','aid_committee','treasurer','president','admin'] },
-  { section: 'الخدمات الأساسية', label: 'إدارة الملف الشخصي',       roles: ['member','aid_committee','treasurer','president','admin'] },
+  { section: 'الخدمات الأساسية', label: 'عرض الأخبار والإعلانات',  roles: ['member','aid_committee','secretary','treasurer','president','admin'] },
+  { section: 'الخدمات الأساسية', label: 'تقديم دفعة اشتراك / تبرع', roles: ['member','aid_committee','secretary','treasurer','president','admin'] },
+  { section: 'الخدمات الأساسية', label: 'تقديم طلب دعم',          roles: ['member','aid_committee','secretary','treasurer','president','admin'] },
+  { section: 'الخدمات الأساسية', label: 'إدارة الملف الشخصي',       roles: ['member','aid_committee','secretary','treasurer','president','admin'] },
   // ── لجنة ──
-  { section: 'لوحة الإدارة',    label: 'الدخول للوحة الإدارة',      roles: ['aid_committee','treasurer','president','admin'] },
-  { section: 'لوحة الإدارة',    label: 'عرض قائمة الأعضاء',         roles: ['aid_committee','treasurer','president','admin'] },
-  { section: 'لوحة الإدارة',    label: 'نشر الأخبار وإدارتها',       roles: ['aid_committee','treasurer','president','admin'] },
-  { section: 'لوحة الإدارة',    label: 'مراجعة طلبات الدعم',      roles: ['aid_committee','president','admin'] },
-  // ── أمين الصندوق ──
-  { section: 'الصندوق',         label: 'مراجعة واعتماد الدفعات',     roles: ['treasurer','president','admin'] },
-  { section: 'الصندوق',         label: 'إضافة مصروفات',             roles: ['treasurer','president','admin'] },
-  { section: 'الصندوق',         label: 'عرض التقارير المالية',       roles: ['treasurer','president','admin'] },
+  { section: 'لوحة الإدارة',    label: 'الدخول للوحة الإدارة',      roles: ['aid_committee','secretary','treasurer','president','admin'] },
+  { section: 'لوحة الإدارة',    label: 'عرض قائمة الأعضاء',         roles: ['aid_committee','secretary','treasurer','president','admin'] },
+  { section: 'لوحة الإدارة',    label: 'نشر الأخبار وإدارتها',       roles: ['aid_committee','secretary','treasurer','president','admin'] },
+  { section: 'لوحة الإدارة',    label: 'مراجعة طلبات الدعم',        roles: ['aid_committee','secretary','president','admin'] },
+  { section: 'لوحة الإدارة',    label: 'متابعة حالة الأعضاء',       roles: ['aid_committee','secretary','president','admin'] },
+  // ── أمين سر الصندوق ──
+  { section: 'السكرتارية',      label: 'تسجيل محاضر الاجتماعات',    roles: ['secretary','president','admin'] },
+  { section: 'السكرتارية',      label: 'كتابة وإرسال الخطابات',      roles: ['secretary','president','admin'] },
+  { section: 'السكرتارية',      label: 'ترتيب المحافل والفعاليات',   roles: ['secretary','president','admin'] },
+  // ── المدير المالي ──
+  { section: 'الصندوق المالي',  label: 'مراجعة واعتماد الدفعات',     roles: ['treasurer','president','admin'] },
+  { section: 'الصندوق المالي',  label: 'تعديل بيانات الدفعات',       roles: ['treasurer','president','admin'] },
+  { section: 'الصندوق المالي',  label: 'إضافة مصروفات',             roles: ['treasurer','president','admin'] },
+  { section: 'الصندوق المالي',  label: 'عرض التقارير المالية',       roles: ['treasurer','president','admin'] },
   // ── رئيس الصندوق / مدير ──
   { section: 'الإدارة العليا',   label: 'قبول ورفض طلبات العضوية',   roles: ['president','admin'] },
   { section: 'الإدارة العليا',   label: 'تغيير أدوار الأعضاء',       roles: ['president','admin'] },
@@ -46,12 +52,13 @@ const INDIVIDUAL_PERMS = [
 const ROLE_COLORS: Record<Role, string> = {
   member:        'bg-brand-100 dark:bg-brand-800 text-brand-700 dark:text-brand-300',
   aid_committee: 'bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-400',
+  secretary:     'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-400',
   treasurer:     'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400',
   president:     'bg-gold-100 dark:bg-gold-900/40 text-gold-700 dark:text-gold-400',
   admin:         'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400',
 }
 
-const SECTION_ORDER = ['الخدمات الأساسية', 'لوحة الإدارة', 'الصندوق', 'الإدارة العليا']
+const SECTION_ORDER = ['الخدمات الأساسية', 'لوحة الإدارة', 'السكرتارية', 'الصندوق المالي', 'الإدارة العليا']
 
 /* ── Per-member permissions modal ── */
 function PermissionsModal({
@@ -353,7 +360,8 @@ export default function RolesPage() {
           {([
             { role: 'member',        desc: 'يقدّم دفعاته وطلبات دعمه ويتابع أخبار العائلة فقط' },
             { role: 'aid_committee', desc: 'يراجع طلبات الدعم وينشر الأخبار بالإضافة لحقوق العضو' },
-            { role: 'treasurer',     desc: 'يتولى الدفعات والمصروفات والتقارير المالية' },
+            { role: 'secretary',     desc: 'سكرتارية الصندوق: تسجيل محاضر، خطابات، متابعة الأعضاء، تنسيق الفعاليات، نشر الأخبار' },
+            { role: 'treasurer',     desc: 'المدير المالي: يراجع الدفعات ويُعدّل بياناتها ويضيف المصروفات ويعرض التقارير' },
             { role: 'president',     desc: 'صلاحيات كاملة: يوافق على العضوية ويعيّن الأدوار ويدير الإعدادات' },
             { role: 'admin',         desc: 'مدير النظام التقني — صلاحيات كاملة وإضافية كالمهاجرات والسجل' },
           ] as { role: Role; desc: string }[]).map(({ role, desc }) => (

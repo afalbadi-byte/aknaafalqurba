@@ -45,7 +45,7 @@ export default function Dashboard() {
 
   if (!user) return <div className="text-center text-brand-500 py-12">جاري التحميل...</div>
 
-  const isCommittee = ['admin','president','treasurer','aid_committee'].includes(user.role)
+  const isCommittee = ['admin','president','treasurer','aid_committee','secretary'].includes(user.role)
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">

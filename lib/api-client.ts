@@ -18,8 +18,9 @@ async function call(path: string, opts: RequestInit = {}) {
   return data
 }
 
-const post  = (p: string, body?: any)  => call(p, { method: 'POST', body: body instanceof FormData ? body : (body ? JSON.stringify(body) : undefined) })
-const put   = (p: string, body?: any)  => call(p, { method: 'PUT',  body: JSON.stringify(body) })
+const post  = (p: string, body?: any)  => call(p, { method: 'POST',  body: body instanceof FormData ? body : (body ? JSON.stringify(body) : undefined) })
+const put   = (p: string, body?: any)  => call(p, { method: 'PUT',   body: JSON.stringify(body) })
+const patch = (p: string, body?: any)  => call(p, { method: 'PATCH', body: JSON.stringify(body) })
 const del   = (p: string)              => call(p, { method: 'DELETE' })
 const get   = (p: string)              => call(p)
 
@@ -76,6 +77,7 @@ export const api = {
     list:   (status?: string)       => get(`/api/payments${status ? `?status=${status}` : ''}`),
     review: (id: number, decision: string, notes?: string) =>
       post(`/api/payments/${id}/review`, { decision, notes }),
+    edit:   (id: number, data: object) => patch(`/api/payments/${id}`, data),
     remove: (id: number)            => del(`/api/payments/${id}`),
   },
   expenses: {
