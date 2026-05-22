@@ -49,6 +49,13 @@ export async function POST(req: NextRequest) {
     )
     RETURNING id
   `
+  // Store id_document separately — requires migration 011; silently skip if column missing
+  if (body.id_document) {
+    try {
+      await sql`UPDATE members SET id_document = ${String(body.id_document)} WHERE id = ${ins.id}`
+    } catch { /* migration 011 not yet applied */ }
+  }
+
   void log(ins.id, 'auth.register', { ip: getIP(req), member_name: String(body.full_name).trim(), entity: 'member', entity_id: ins.id, details: { phone, email: body.email || null } })
   await notifyCommittee('new_member', 'طلب عضوية جديد',
     `${body.full_name} يطلب الانضمام للصندوق`, `/admin/members?id=${ins.id}`)

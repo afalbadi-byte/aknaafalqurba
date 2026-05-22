@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { UserPlus, Loader2, CheckCircle2, CalendarDays } from 'lucide-react'
+import { UserPlus, Loader2, CheckCircle2, CalendarDays, Upload } from 'lucide-react'
 import { api } from '@/lib/api-client'
 import Logo from '@/components/logo'
 import DarkToggle from '@/components/dark-toggle'
@@ -204,13 +204,27 @@ function BirthDatePicker({ value, onChange }: { value: string; onChange: (v: str
 export default function Register() {
   const router = useRouter()
   const [form, setForm] = useState({
-    full_name: '', phone: '', email: '', branch: '', city: '',
+    full_name: '', phone: '', email: '', national_id: '', branch: '', city: '',
     birth_date: '', gender: '', generation_number: '', password: '', confirm: '',
   })
+  const [idDoc,     setIdDoc]     = useState<string | null>(null)
+  const [idDocName, setIdDocName] = useState('')
   const [busy,  setBusy]  = useState(false)
   const [error, setError] = useState('')
   const [done,  setDone]  = useState(false)
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+
+  function handleIdDocFile(file: File | null) {
+    if (!file) { setIdDoc(null); setIdDocName(''); return }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('حجم الملف يجب أن يكون أقل من ٥ ميجابايت')
+      return
+    }
+    setIdDocName(`${file.name}  (${(file.size / 1024).toFixed(0)} KB)`)
+    const reader = new FileReader()
+    reader.onload = () => setIdDoc(reader.result as string)
+    reader.readAsDataURL(file)
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault(); setError('')
@@ -221,8 +235,10 @@ export default function Register() {
       const { confirm, ...payload } = form
       const r = await api.auth.register({
         ...payload,
+        national_id: payload.national_id || undefined,
         birth_date: payload.birth_date || undefined,
         generation_number: payload.generation_number ? Number(payload.generation_number) : undefined,
+        id_document: idDoc || undefined,
       })
       if (r.email_pending && r.member_id) {
         router.push(`/verify-email?m=${r.member_id}`)
@@ -264,6 +280,7 @@ export default function Register() {
               <F label="الاسم الكامل *"      v={form.full_name}  on={v => set('full_name', v)} required />
               <F label="رقم الجوال *"        v={form.phone}      on={v => set('phone', v)} required placeholder="05XXXXXXXX" />
               <F label="البريد الإلكتروني"   v={form.email}      on={v => set('email', v)} type="email" placeholder="example@email.com" />
+              <F label="رقم الهوية الوطنية"  v={form.national_id} on={v => set('national_id', v)} placeholder="10XXXXXXXXX" />
 
               {/* Branch */}
               <div>
@@ -301,6 +318,32 @@ export default function Register() {
               </div>
 
               <F label="المدينة"            v={form.city}       on={v => set('city', v)} />
+
+              {/* National ID document upload */}
+              <div className="sm:col-span-2">
+                <label className="label">
+                  صورة الهوية الوطنية من توكلنا
+                  <span className="text-brand-400 font-normal text-xs mr-2">PDF أو صورة — حتى ٥ ميجابايت</span>
+                </label>
+                <label className="flex items-center gap-3 input cursor-pointer hover:bg-brand-50 dark:hover:bg-brand-800 transition">
+                  <Upload size={16} className="text-brand-400 shrink-0" />
+                  <span className="text-sm text-brand-500 dark:text-brand-400 flex-1 truncate">
+                    {idDocName || 'اختر ملف PDF أو صورة...'}
+                  </span>
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,image/*"
+                    onChange={e => handleIdDocFile(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+                {idDoc && (
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 flex items-center gap-1">
+                    <CheckCircle2 size={12} /> تم اختيار الملف بنجاح
+                  </p>
+                )}
+              </div>
+
               <F label="كلمة المرور *"       v={form.password}   on={v => set('password', v)} type="password" required />
               <F label="تأكيد كلمة المرور *" v={form.confirm}    on={v => set('confirm', v)} type="password" required />
 

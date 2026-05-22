@@ -53,6 +53,7 @@ export const api = {
     setTheme:     (theme: string)   => post('/api/members/theme', { theme }),
     avatarUpload: (fd: FormData)    => post('/api/members/avatar', fd),
     avatarRemove: ()                => del('/api/members/avatar'),
+    idDocument:   (id: number)      => get(`/api/members/${id}/id-document`),
   },
   payments: {
     create: (fd: FormData)          => post('/api/payments', fd),

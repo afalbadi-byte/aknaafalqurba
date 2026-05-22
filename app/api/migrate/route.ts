@@ -97,6 +97,10 @@ const MIGRATIONS: { name: string; up: string }[] = [
     `,
   },
   {
+    name: '011-id-document',
+    up: `ALTER TABLE members ADD COLUMN IF NOT EXISTS id_document TEXT;`,
+  },
+  {
     name: '008-activity-logs',
     up: `
       CREATE TABLE IF NOT EXISTS activity_logs (
@@ -172,6 +176,13 @@ export async function GET() {
             WHERE table_name = 'member_permissions'
           `
           return { name: m.name, status: tbl ? 'applied' : 'pending' }
+        }
+        if (m.name.startsWith('011')) {
+          const [col] = await sql`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'members' AND column_name = 'id_document'
+          `
+          return { name: m.name, status: col ? 'applied' : 'pending' }
         }
         if (m.name.startsWith('008')) {
           const [tbl] = await sql`

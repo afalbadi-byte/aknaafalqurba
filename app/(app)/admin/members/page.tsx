@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { api } from '@/lib/api-client'
 import { ROLE_LABELS, STATUS_LABELS, statusBadge, formatDate } from '@/lib/utils'
-import { CheckCircle, UserCog, Ban, ShieldCheck, Search, MailCheck } from 'lucide-react'
+import { CheckCircle, UserCog, Ban, ShieldCheck, Search, MailCheck, FileText, Loader2 } from 'lucide-react'
 import Modal from '@/components/modal'
 import { Avatar } from '@/components/app-shell'
 
@@ -17,6 +17,12 @@ export default function Members() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<any>(null)
+
+  // ID document viewer
+  const [docMember,  setDocMember]  = useState<any>(null)
+  const [docData,    setDocData]    = useState<string | null>(null)
+  const [docLoading, setDocLoading] = useState(false)
+  const [docError,   setDocError]   = useState('')
 
   const isAdmin = user && TOP_ADMIN.includes(user.role)
 
@@ -36,6 +42,21 @@ export default function Members() {
   async function verifyEmail(id: number) {
     await api.members.verifyEmailAdmin(id)
     load()
+  }
+
+  async function openDoc(m: any) {
+    setDocMember(m)
+    setDocData(null)
+    setDocError('')
+    setDocLoading(true)
+    try {
+      const r = await api.members.idDocument(m.id)
+      setDocData(r.id_document)
+    } catch (e: any) {
+      setDocError(e.message || 'تعذّر تحميل المستند')
+    } finally {
+      setDocLoading(false)
+    }
   }
 
   const filtered = list.filter(m =>
@@ -98,6 +119,9 @@ export default function Members() {
                         <Avatar name={m.full_name} src={m.avatar} size={36} />
                         <div>
                           <div className="font-bold text-brand-950 dark:text-brand-50">{m.full_name}</div>
+                          {m.national_id && (
+                            <div className="text-xs text-brand-400 dark:text-brand-500 font-mono">{m.national_id}</div>
+                          )}
                           {m.email && (
                             <div className="text-xs text-brand-500 dark:text-brand-400 flex items-center gap-1">
                               {m.email}
@@ -137,6 +161,11 @@ export default function Members() {
                             <MailCheck size={16} />
                           </button>
                         )}
+                        {m.has_id_document && (
+                          <button onClick={() => openDoc(m)} className="p-2 hover:bg-brand-50 dark:hover:bg-brand-800 text-brand-500 dark:text-brand-400 rounded" title="عرض صورة الهوية">
+                            <FileText size={16} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -163,6 +192,27 @@ export default function Members() {
             ))}
           </div>
         )}
+      </Modal>
+
+      {/* ID Document viewer modal */}
+      <Modal open={!!docMember} onClose={() => { setDocMember(null); setDocData(null); setDocError('') }}
+        title={`هوية: ${docMember?.full_name}`}>
+        <div className="min-h-[200px] flex items-center justify-center">
+          {docLoading && (
+            <div className="flex flex-col items-center gap-2 text-brand-500">
+              <Loader2 size={32} className="animate-spin" />
+              <span className="text-sm">جاري تحميل المستند...</span>
+            </div>
+          )}
+          {!docLoading && docError && (
+            <p className="text-red-600 text-sm text-center">{docError}</p>
+          )}
+          {!docLoading && docData && (
+            docData.startsWith('data:image')
+              ? <img src={docData} alt="صورة الهوية" className="w-full rounded-lg" />
+              : <iframe src={docData} title="هوية" className="w-full h-[500px] rounded-lg border border-brand-100 dark:border-brand-700" />
+          )}
+        </div>
       </Modal>
     </div>
   )
