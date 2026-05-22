@@ -14,14 +14,22 @@ export default function AdminPayments() {
   const [list,    setList]    = useState<any[]>([])
   const [filter,  setFilter]  = useState(params.get('status') || '')
   const [loading, setLoading] = useState(true)
+  const [loadErr, setLoadErr] = useState('')
   const [viewing, setViewing] = useState<any>(null)
   const [notes,   setNotes]   = useState('')
 
   useEffect(() => { load() }, [filter])
   async function load() {
-    setLoading(true)
-    try { const r = await api.payments.list(filter || undefined); setList(r.payments) }
-    finally { setLoading(false) }
+    setLoading(true); setLoadErr('')
+    try {
+      const r = await api.payments.list(filter || undefined)
+      setList(r.payments ?? [])
+    } catch (e: any) {
+      setLoadErr(e.message || 'فشل تحميل الدفعات')
+      setList([])
+    } finally {
+      setLoading(false)
+    }
   }
   async function review(id: number, decision: string) {
     await api.payments.review(id, decision, notes)
@@ -56,6 +64,13 @@ export default function AdminPayments() {
           </button>
         ))}
       </div>
+
+      {loadErr && (
+        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-xl p-4 text-sm flex items-center justify-between">
+          <span>⚠️ {loadErr}</span>
+          <button onClick={load} className="underline text-xs">إعادة المحاولة</button>
+        </div>
+      )}
 
       <div className="card overflow-hidden">
         {loading && <div className="p-8 text-center text-brand-500 dark:text-brand-400">جاري التحميل...</div>}
