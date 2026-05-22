@@ -93,11 +93,10 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ── Mark as ID-verified + delete stored document (privacy) ──
+  // ── Mark as ID-verified (document kept for admin review) ──
   try {
     await sql`
-      UPDATE members
-      SET id_verified = true, id_verified_at = NOW(), id_document = NULL
+      UPDATE members SET id_verified = true, id_verified_at = NOW()
       WHERE id = ${memberId}
     `
   } catch { /* migration 012 not applied yet */ }
