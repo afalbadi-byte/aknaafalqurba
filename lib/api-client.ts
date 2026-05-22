@@ -45,6 +45,7 @@ export const api = {
     list:         (status?: string) => get(`/api/members${status ? `?status=${status}` : ''}`),
     directory:    ()                => get('/api/members/directory'),
     get:          (id: number)      => get(`/api/members/${id}`),
+    delete:       (id: number)      => del(`/api/members/${id}`),
     update:       (d: any)          => post('/api/members/update', d),
     approve:      (id: number)      => post(`/api/members/${id}/approve`),
     setRole:      (id: number, role: string)   => post(`/api/members/${id}/role`,   { role }),
