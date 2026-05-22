@@ -155,8 +155,12 @@ export default async function LandingPage() {
               {settings.license_number && <span>رقم الترخيص: {settings.license_number}</span>}
               {settings.license_date &&   <span>تاريخ الترخيص: {settings.license_date}</span>}
             </div>
-            <div className="text-xs text-brand-500 mt-2">
-              © {new Date().getFullYear()} {settings.fund_name || 'صندوق أكناف القربى'} — {settings.family_name || 'عائلة البادي'}
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-brand-500 mt-2">
+              <span>© {new Date().getFullYear()} {settings.fund_name || 'صندوق أكناف القربى'} — {settings.family_name || 'عائلة البادي'}</span>
+              <span>·</span>
+              <Link href="/privacy" className="hover:text-brand-300 transition">سياسة الخصوصية</Link>
+              <span>·</span>
+              <Link href="/privacy#terms" className="hover:text-brand-300 transition">الشروط والأحكام</Link>
             </div>
           </div>
         </div>

@@ -40,6 +40,7 @@ export const api = {
     verifyId:        (member_id: number) => post('/api/auth/verify-id', { member_id }),
     verifyIdentityDoc: (member_id: number, id_document: string) =>
       post('/api/auth/verify-identity', { member_id, id_document }),
+    extractId:       (id_document: string) => post('/api/auth/extract-id', { id_document }),
   },
   members: {
     list:         (status?: string) => get(`/api/members${status ? `?status=${status}` : ''}`),
