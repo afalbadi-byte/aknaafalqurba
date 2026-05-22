@@ -32,14 +32,6 @@ export async function POST(req: NextRequest) {
   }
   if (!Object.keys(sets).length) return jsonError('no_changes', 'لا توجد تعديلات', 400)
 
-  // If the phone number is changing, reset phone_verified
-  if ('phone' in sets) {
-    const [current] = await sql`SELECT phone FROM members WHERE id = ${id}`
-    if (current && sets.phone !== current.phone) {
-      sets.phone_verified = false
-    }
-  }
-
   try {
     await sql`UPDATE members SET ${sql(sets)}, updated_at = NOW() WHERE id = ${id}`
   } catch (e: any) {

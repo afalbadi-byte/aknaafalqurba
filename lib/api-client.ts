@@ -41,8 +41,6 @@ export const api = {
     verifyIdentityDoc: (member_id: number, id_document: string) =>
       post('/api/auth/verify-identity', { member_id, id_document }),
     extractId:       (id_document: string) => post('/api/auth/extract-id', { id_document }),
-    phoneOtpSend:    ()             => post('/api/auth/phone-otp'),
-    phoneOtpVerify:  (code: string) => put('/api/auth/phone-otp', { code }),
   },
   members: {
     list:         (status?: string) => get(`/api/members${status ? `?status=${status}` : ''}`),

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { api } from '@/lib/api-client'
 import { ROLE_LABELS, STATUS_LABELS, statusBadge, formatDate } from '@/lib/utils'
 import {
-  CheckCircle, CheckCircle2, UserCog, Ban, ShieldCheck, Search,
+  CheckCircle, UserCog, Ban, ShieldCheck, Search,
   MailCheck, FileText, Loader2, BrainCircuit, BadgeCheck, Trash2,
 } from 'lucide-react'
 import Modal from '@/components/modal'
@@ -196,14 +196,7 @@ export default function Members() {
                       </div>
                     </td>
                     <td className="p-3 text-brand-700 dark:text-brand-300">{m.branch || '—'}</td>
-                    <td className="p-3 font-mono text-xs text-brand-600 dark:text-brand-400">
-                      <div className="flex items-center gap-1">
-                        {m.phone}
-                        {m.phone_verified
-                          ? <span title="جوال مفعّل"><CheckCircle2 size={12} className="text-emerald-500 shrink-0" /></span>
-                          : <span title="جوال غير مفعّل" className="text-amber-400 text-[10px] font-sans">(!)</span>}
-                      </div>
-                    </td>
+                    <td className="p-3 font-mono text-xs text-brand-600 dark:text-brand-400">{m.phone}</td>
                     <td className="p-3"><span className="badge badge-info">{ROLE_LABELS[m.role]}</span></td>
                     <td className="p-3">
                       <span className={`badge ${statusBadge(m.status)}`}>{STATUS_LABELS[m.status] || m.status}</span>

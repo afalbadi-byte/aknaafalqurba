@@ -139,25 +139,6 @@ const MIGRATIONS: { name: string; up: string }[] = [
       CREATE INDEX IF NOT EXISTS idx_logs_created ON activity_logs(created_at DESC);
     `,
   },
-  {
-    name: '016-phone-verification',
-    up: `
-      ALTER TABLE members ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN NOT NULL DEFAULT FALSE;
-
-      CREATE TABLE IF NOT EXISTS phone_verifications (
-        id          SERIAL PRIMARY KEY,
-        member_id   INT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
-        phone       VARCHAR(20)  NOT NULL,
-        code_hash   VARCHAR(120) NOT NULL,
-        purpose     VARCHAR(30)  NOT NULL DEFAULT 'verify',
-        attempts    SMALLINT     NOT NULL DEFAULT 0,
-        expires_at  TIMESTAMPTZ  NOT NULL,
-        used_at     TIMESTAMPTZ,
-        created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
-      );
-      CREATE INDEX IF NOT EXISTS idx_phone_ver_member ON phone_verifications(member_id);
-    `,
-  },
 ]
 
 export async function GET() {
@@ -257,13 +238,6 @@ export async function GET() {
             WHERE table_name = 'activity_logs'
           `
           return { name: m.name, status: tbl ? 'applied' : 'pending' }
-        }
-        if (m.name.startsWith('016')) {
-          const [col] = await sql`
-            SELECT column_name FROM information_schema.columns
-            WHERE table_name = 'members' AND column_name = 'phone_verified'
-          `
-          return { name: m.name, status: col ? 'applied' : 'pending' }
         }
         return { name: m.name, status: 'unknown' }
       } catch {
