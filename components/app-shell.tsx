@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, User, CreditCard, FileHeart, Newspaper,
   Users, Banknote, Settings as SettingsIcon, Menu, X, LogOut, Bell, Shield,
-  Sun, Moon, Monitor, Database, ClipboardList, ShieldCheck,
+  Sun, Moon, Monitor, Database, ClipboardList, ShieldCheck, Info,
 } from 'lucide-react'
 import Logo from './logo'
 import { api } from '@/lib/api-client'
@@ -24,6 +24,7 @@ const MEMBER_NAV = [
   { to: '/payments',   label: 'دفعاتي',           icon: CreditCard },
   { to: '/aid',        label: 'طلبات المعونات',   icon: FileHeart },
   { to: '/news',       label: 'أخبار العائلة',    icon: Newspaper },
+  { to: '/about',      label: 'من نحن',           icon: Info },
   { to: '/profile',    label: 'بياناتي',          icon: User },
 ]
 const ADMIN_NAV = [

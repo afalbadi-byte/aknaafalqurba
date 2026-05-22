@@ -1,7 +1,7 @@
 'use client'
 import { useRef, useEffect, useState } from 'react'
 import { api } from '@/lib/api-client'
-import { ROLE_LABELS, RELATION_LABELS } from '@/lib/utils'
+import { ROLE_LABELS, RELATION_LABELS, BRANCHES, GENDER_LABELS, STATUS_LABELS, statusBadge } from '@/lib/utils'
 import {
   Save, Lock, UserPlus, Trash2, Loader2, Mail, ShieldCheck,
   CheckCircle2, Camera, X as XIcon,
@@ -24,7 +24,14 @@ export default function Profile() {
   const [avatarMsg,  setAvatarMsg]  = useState<any>(null)
 
   useEffect(() => {
-    api.auth.me().then(r => { setUser(r.user); setForm(r.user) })
+    api.auth.me().then(r => {
+      setUser(r.user)
+      setForm({
+        ...r.user,
+        // Ensure date is YYYY-MM-DD for <input type="date">
+        birth_date: r.user.birth_date ? String(r.user.birth_date).slice(0, 10) : '',
+      })
+    })
     loadDeps()
   }, [])
 
@@ -59,14 +66,16 @@ export default function Profile() {
     e.preventDefault(); setBusy(true); setMsg(null)
     try {
       await api.members.update({
-        full_name:   form.full_name,
-        phone:       form.phone,
-        branch:      form.branch,
-        city:        form.city,
-        address:     form.address,
-        national_id: form.national_id,
-        birth_date:  form.birth_date || null,
-        notes:       form.notes || null,
+        full_name:         form.full_name,
+        phone:             form.phone,
+        branch:            form.branch || null,
+        city:              form.city,
+        address:           form.address,
+        national_id:       form.national_id,
+        birth_date:        form.birth_date ? String(form.birth_date).slice(0, 10) : null,
+        notes:             form.notes || null,
+        gender:            form.gender || null,
+        generation_number: form.generation_number ? Number(form.generation_number) : null,
       })
       setMsg({ ok: true, text: 'تم حفظ التعديلات' })
     } catch (err: any) { setMsg({ ok: false, text: err.message }) }
@@ -211,10 +220,40 @@ export default function Profile() {
               <p className="text-[11px] text-brand-500 mt-1">لتغيير البريد، استخدم البطاقة على اليسار</p>
             </div>
             <F label="رقم الهوية"   v={form.national_id ?? ''} on={(v: string) => set('national_id', v)} />
-            <F label="الفرع/البطن"  v={form.branch ?? ''}      on={(v: string) => set('branch', v)} />
+
+            {/* Branch */}
+            <div>
+              <label className="label">الفرع</label>
+              <select className="input" value={form.branch ?? ''} onChange={e => set('branch', e.target.value)}>
+                <option value="">— اختر الفرع —</option>
+                {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </div>
+
             <F label="المدينة"      v={form.city ?? ''}        on={(v: string) => set('city', v)} />
             <F label="تاريخ الميلاد" v={form.birth_date ?? ''} on={(v: string) => set('birth_date', v)} type="date" />
             <F label="العنوان"      v={form.address ?? ''}     on={(v: string) => set('address', v)} />
+
+            {/* Gender */}
+            <div>
+              <label className="label">الجنس</label>
+              <select className="input" value={form.gender ?? ''} onChange={e => set('gender', e.target.value)}>
+                <option value="">— اختر —</option>
+                <option value="male">ذكر</option>
+                <option value="female">أنثى</option>
+              </select>
+            </div>
+
+            {/* Generation number */}
+            <div>
+              <label className="label">رقم الجيل <span className="text-brand-400 font-normal text-xs">(الجد بادي = الجيل الأول)</span></label>
+              <select className="input" value={form.generation_number ?? ''} onChange={e => set('generation_number', e.target.value)}>
+                <option value="">— اختر الجيل —</option>
+                {[1,2,3,4,5,6,7,8].map(n => (
+                  <option key={n} value={n}>الجيل {n}</option>
+                ))}
+              </select>
+            </div>
             <div className="sm:col-span-2">
               <label className="label">ملاحظات (اختياري)</label>
               <textarea
@@ -252,8 +291,11 @@ export default function Profile() {
                 )}
               </div>
               <div className="font-bold text-brand-950 dark:text-brand-50">{user.full_name}</div>
-              <div className="text-sm text-brand-500 dark:text-brand-400 mb-3">{ROLE_LABELS[user.role]}</div>
-              <span className="badge badge-approved">الحساب مفعّل</span>
+              <div className="text-sm text-brand-500 dark:text-brand-400 mb-1">{ROLE_LABELS[user.role]}</div>
+              {user.gender && (
+                <div className="text-xs text-brand-400 dark:text-brand-500 mb-2">{GENDER_LABELS[user.gender]}</div>
+              )}
+              <span className={`badge ${statusBadge(user.status)}`}>{STATUS_LABELS[user.status] || user.status}</span>
             </div>
 
             <input

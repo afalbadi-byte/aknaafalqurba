@@ -21,6 +21,8 @@ export type Member = {
   national_id: string | null
   avatar: string | null
   theme: 'light' | 'dark' | 'system'
+  gender: 'male' | 'female' | null
+  generation_number: number | null
   role: 'member' | 'aid_committee' | 'treasurer' | 'president' | 'admin'
   status: 'pending' | 'active' | 'suspended'
   notes: string | null
@@ -83,7 +85,8 @@ export async function currentUser(): Promise<Member | null> {
   const rows = await sql<Omit<Member, 'permissions'>[]>`
     SELECT m.id, m.full_name, m.phone, m.email, m.email_verified, m.branch,
            m.birth_year, m.birth_date, m.city, m.address, m.national_id,
-           m.role, m.status, m.avatar, m.theme, m.notes, m.created_at
+           m.role, m.status, m.avatar, m.theme, m.notes, m.created_at,
+           m.gender, m.generation_number
     FROM sessions s
     JOIN members  m ON m.id = s.member_id
     WHERE s.token = ${token}

@@ -6,12 +6,13 @@ import { UserPlus, Loader2, CheckCircle2 } from 'lucide-react'
 import { api } from '@/lib/api-client'
 import Logo from '@/components/logo'
 import DarkToggle from '@/components/dark-toggle'
+import { BRANCHES } from '@/lib/utils'
 
 export default function Register() {
   const router = useRouter()
   const [form, setForm] = useState({
     full_name: '', phone: '', email: '', branch: '', city: '',
-    birth_year: '', password: '', confirm: '',
+    birth_year: '', gender: '', generation_number: '', password: '', confirm: '',
   })
   const [busy,  setBusy]  = useState(false)
   const [error, setError] = useState('')
@@ -25,8 +26,10 @@ export default function Register() {
     setBusy(true)
     try {
       const { confirm, ...payload } = form
-      const r = await api.auth.register(payload)
-      // If we sent a verification code, route the user to the code entry page
+      const r = await api.auth.register({
+        ...payload,
+        generation_number: payload.generation_number ? Number(payload.generation_number) : undefined,
+      })
       if (r.email_pending && r.member_id) {
         router.push(`/verify-email?m=${r.member_id}`)
         return
@@ -66,10 +69,40 @@ export default function Register() {
             <form onSubmit={onSubmit} className="grid sm:grid-cols-2 gap-4">
               <F label="الاسم الكامل *"      v={form.full_name}  on={v => set('full_name', v)} required />
               <F label="رقم الجوال *"        v={form.phone}      on={v => set('phone', v)} required placeholder="05XXXXXXXX" />
-              <F label="البريد الإلكتروني"  v={form.email}      on={v => set('email', v)} type="email" placeholder="example@email.com" />
-              <F label="الفرع/البطن"        v={form.branch}     on={v => set('branch', v)} placeholder="مثال: بيت فلان" />
+              <F label="البريد الإلكتروني"   v={form.email}      on={v => set('email', v)} type="email" placeholder="example@email.com" />
+              <F label="سنة الميلاد"          v={form.birth_year} on={v => set('birth_year', v)} type="number" placeholder="1990" />
+
+              {/* Branch */}
+              <div>
+                <label className="label">الفرع</label>
+                <select className="input" value={form.branch} onChange={e => set('branch', e.target.value)}>
+                  <option value="">— اختر الفرع —</option>
+                  {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </div>
+
+              {/* Gender */}
+              <div>
+                <label className="label">الجنس</label>
+                <select className="input" value={form.gender} onChange={e => set('gender', e.target.value)}>
+                  <option value="">— اختر —</option>
+                  <option value="male">ذكر</option>
+                  <option value="female">أنثى</option>
+                </select>
+              </div>
+
+              {/* Generation number */}
+              <div>
+                <label className="label">رقم الجيل <span className="text-brand-400 font-normal text-xs">(الجد بادي = الجيل الأول)</span></label>
+                <select className="input" value={form.generation_number} onChange={e => set('generation_number', e.target.value)}>
+                  <option value="">— اختر الجيل —</option>
+                  {[1,2,3,4,5,6,7,8].map(n => (
+                    <option key={n} value={n}>الجيل {n}</option>
+                  ))}
+                </select>
+              </div>
+
               <F label="المدينة"            v={form.city}       on={v => set('city', v)} />
-              <F label="سنة الميلاد"         v={form.birth_year} on={v => set('birth_year', v)} type="number" placeholder="1990" />
               <F label="كلمة المرور *"       v={form.password}   on={v => set('password', v)} type="password" required />
               <F label="تأكيد كلمة المرور *" v={form.confirm}    on={v => set('confirm', v)} type="password" required />
 

@@ -73,6 +73,13 @@ export const RELATION_LABELS: Record<string, string> = {
   father: 'أب', mother: 'أم', other: 'آخر',
 }
 
+export const BRANCHES = ['المحمد', 'الراشد', 'العبدالله', 'السليمان', 'العلي'] as const
+
+export const GENDER_LABELS: Record<string, string> = {
+  male: 'ذكر',
+  female: 'أنثى',
+}
+
 export function statusBadge(status: string) {
   const map: Record<string, string> = {
     pending: 'badge-pending', submitted: 'badge-pending',

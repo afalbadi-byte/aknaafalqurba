@@ -1,7 +1,7 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { api } from '@/lib/api-client'
-import { Save, Loader2, CreditCard, AlertCircle } from 'lucide-react'
+import { Save, Loader2, CreditCard, AlertCircle, Upload, X } from 'lucide-react'
 
 const GROUPS = [
   {
@@ -46,15 +46,57 @@ const GROUPS = [
   },
 ]
 
+const ABOUT_FIELDS = [
+  { k: 'regulations', l: 'لائحة العائلة', textarea: true, rows: 6, placeholder: 'أدخل نص اللائحة الخاصة بالعائلة...' },
+]
+
 export default function Settings() {
   const [data, setData] = useState<any>({})
   const [busy, setBusy] = useState(false)
   const [msg,  setMsg]  = useState<any>(null)
+  const licFileRef = useRef<HTMLInputElement>(null)
+  const [licBusy, setLicBusy] = useState(false)
 
   useEffect(() => {
     api.settings.all().then(r => setData(r.settings || {}))
   }, [])
   const set = (k: string, v: string) => setData((d: any) => ({ ...d, [k]: v }))
+
+  // Compress license image to Base64
+  function compressImage(file: File, maxPx = 1200): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      const url = URL.createObjectURL(file)
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        const scale = Math.min(maxPx / img.width, maxPx / img.height, 1)
+        const w = Math.round(img.width * scale)
+        const h = Math.round(img.height * scale)
+        const canvas = document.createElement('canvas')
+        canvas.width = w; canvas.height = h
+        canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
+        canvas.toBlob(b => {
+          if (!b) return reject(new Error('فشل ضغط الصورة'))
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result as string)
+          reader.readAsDataURL(b)
+        }, 'image/jpeg', 0.85)
+      }
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('فشل تحميل الصورة')) }
+      img.src = url
+    })
+  }
+
+  async function handleLicenseUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setLicBusy(true)
+    try {
+      const dataUrl = await compressImage(file)
+      set('license_image', dataUrl)
+    } catch (err: any) { alert(err.message) }
+    finally { setLicBusy(false); if (licFileRef.current) licFileRef.current.value = '' }
+  }
 
   async function save() {
     setBusy(true); setMsg(null)
@@ -90,6 +132,55 @@ export default function Settings() {
           </div>
         </div>
       ))}
+
+      {/* License image */}
+      <div className="card">
+        <div className="px-6 py-3 border-b border-brand-100 dark:border-brand-800">
+          <h3 className="font-bold text-brand-950 dark:text-brand-50">صورة الترخيص</h3>
+        </div>
+        <div className="p-6 space-y-4">
+          {data.license_image ? (
+            <div className="relative inline-block">
+              <img src={data.license_image} alt="صورة الترخيص" className="max-h-64 rounded-xl border border-brand-200 dark:border-brand-700 object-contain" />
+              <button
+                onClick={() => set('license_image', '')}
+                className="absolute top-2 left-2 p-1.5 bg-red-600 text-white rounded-full hover:bg-red-700"
+                title="حذف الصورة"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ) : (
+            <div className="text-sm text-brand-500 dark:text-brand-400">لم يتم رفع صورة الترخيص بعد</div>
+          )}
+          <input ref={licFileRef} type="file" accept="image/*" hidden onChange={handleLicenseUpload} />
+          <button
+            type="button"
+            onClick={() => licFileRef.current?.click()}
+            disabled={licBusy}
+            className="btn-secondary"
+          >
+            {licBusy ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />}
+            {data.license_image ? 'تغيير الصورة' : 'رفع صورة الترخيص'}
+          </button>
+        </div>
+      </div>
+
+      {/* Regulations */}
+      <div className="card">
+        <div className="px-6 py-3 border-b border-brand-100 dark:border-brand-800">
+          <h3 className="font-bold text-brand-950 dark:text-brand-50">اللائحة الخاصة بالعائلة</h3>
+        </div>
+        <div className="p-6">
+          <textarea
+            className="input w-full"
+            rows={8}
+            value={data.regulations || ''}
+            onChange={e => set('regulations', e.target.value)}
+            placeholder="أدخل نص اللائحة الخاصة بالعائلة..."
+          />
+        </div>
+      </div>
 
       {msg && (
         <div className={`text-sm rounded-lg px-4 py-3 ${msg.ok ? 'bg-emerald-50 text-emerald-700 dark:text-emerald-400 border border-emerald-200' : 'bg-red-50 text-red-700 dark:text-red-400 border border-red-200'}`}>

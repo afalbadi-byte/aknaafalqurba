@@ -5,7 +5,7 @@ const PUBLIC_KEYS = [
   'fund_name', 'family_name', 'subscription_amount', 'subscription_period',
   'bank_name', 'bank_iban', 'bank_account_name', 'stc_pay_number',
   'whatsapp_number', 'phone', 'email', 'founded_year', 'about',
-  'license_number', 'license_date',
+  'license_number', 'license_date', 'license_image', 'regulations',
 ]
 
 export async function GET() {

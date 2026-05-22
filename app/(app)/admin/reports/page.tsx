@@ -52,7 +52,7 @@ export default function AdminReports() {
               <YAxis stroke="#0b2135" fontSize={11} />
               <Tooltip formatter={(v: any) => formatMoney(v)} />
               <Legend wrapperStyle={{ direction: 'rtl', fontSize: 12 }} />
-              <Bar dataKey="income"  name="إيرادات"  fill="#0b2135" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="income"  name="إيرادات"  fill="#10b981" radius={[6, 6, 0, 0]} />
               <Bar dataKey="expense" name="مصروفات" fill="#b8934b" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>

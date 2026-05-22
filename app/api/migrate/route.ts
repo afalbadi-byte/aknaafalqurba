@@ -90,6 +90,13 @@ const MIGRATIONS: { name: string; up: string }[] = [
     `,
   },
   {
+    name: '010-gender-generation',
+    up: `
+      ALTER TABLE members ADD COLUMN IF NOT EXISTS gender VARCHAR(10);
+      ALTER TABLE members ADD COLUMN IF NOT EXISTS generation_number SMALLINT;
+    `,
+  },
+  {
     name: '008-activity-logs',
     up: `
       CREATE TABLE IF NOT EXISTS activity_logs (
@@ -149,6 +156,13 @@ export async function GET() {
           const [col] = await sql`
             SELECT column_name FROM information_schema.columns
             WHERE table_name = 'payments' AND column_name = 'reviewed_by'
+          `
+          return { name: m.name, status: col ? 'applied' : 'pending' }
+        }
+        if (m.name.startsWith('010')) {
+          const [col] = await sql`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'members' AND column_name = 'gender'
           `
           return { name: m.name, status: col ? 'applied' : 'pending' }
         }

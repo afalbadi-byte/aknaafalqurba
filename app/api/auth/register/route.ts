@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
 
   const hash = await hashPassword(body.password)
   const [ins] = await sql<{ id: number }[]>`
-    INSERT INTO members (full_name, national_id, phone, email, branch, birth_year, city, address, password_hash, role, status)
+    INSERT INTO members (full_name, national_id, phone, email, branch, birth_year, city, address, password_hash, role, status, gender, generation_number)
     VALUES (
       ${String(body.full_name).trim()},
       ${body.national_id || null},
@@ -36,7 +36,9 @@ export async function POST(req: NextRequest) {
       ${body.address || null},
       ${hash},
       'member',
-      'pending'
+      'pending',
+      ${body.gender || null},
+      ${body.generation_number ? Number(body.generation_number) : null}
     )
     RETURNING id
   `
