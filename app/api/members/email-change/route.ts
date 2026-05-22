@@ -29,6 +29,6 @@ export async function POST(req: NextRequest) {
 
   const r = await startVerification(user.id, newEmail, 'change')
   if (!r.ok) return jsonError('cooldown', `يرجى الانتظار ${r.cooldown_seconds}ث قبل طلب رمز جديد`, 429, { cooldown_seconds: r.cooldown_seconds })
-  if (!r.email_sent) return jsonError('smtp_error', 'فشل إرسال رمز التأكيد — تحقق من إعدادات SMTP في Vercel', 500)
+  if (!r.email_sent) return jsonError('email_error', 'فشل إرسال رمز التأكيد، يرجى المحاولة لاحقاً', 500)
   return jsonOK({ message: 'تم إرسال رمز التأكيد للبريد الجديد', pending_email: newEmail })
 }
