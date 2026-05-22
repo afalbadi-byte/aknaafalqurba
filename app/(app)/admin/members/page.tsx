@@ -81,7 +81,7 @@ export default function Members() {
     setAiResult(null)
     try {
       const r = await api.auth.verifyId(m.id)
-      setAiResult({ member: m, ...r.result })
+      setAiResult({ member: m, ...r.result, updated_fields: r.updated_fields || [] })
       load()
     } catch (e: any) {
       setAiResult({ member: m, error: e.message })
@@ -312,32 +312,64 @@ export default function Members() {
         {aiResult && (
           <div className="space-y-3 text-sm">
             {aiResult.error ? (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-400 rounded-lg px-4 py-3">{aiResult.error}</div>
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-400 rounded-xl px-4 py-3">{aiResult.error}</div>
             ) : (
               <>
-                <div className={`flex items-center gap-2 rounded-lg px-4 py-3 font-bold ${aiResult.verified ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400' : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'}`}>
-                  {aiResult.verified ? <BadgeCheck size={18} /> : <span>✗</span>}
-                  {aiResult.verified ? 'تم التحقق — البادي ✓ — رقم الهوية متطابق ✓' : 'لم يتحقق'}
+                {/* Status banner */}
+                <div className={`flex items-center gap-2 rounded-xl px-4 py-3 font-bold ${aiResult.verified ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-700' : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-700'}`}>
+                  {aiResult.verified ? <BadgeCheck size={18} /> : <span className="text-lg">✗</span>}
+                  {aiResult.verified ? 'تم التحقق — البادي ✓ — رقم الهوية متطابق ✓' : 'لم يتم التحقق'}
                 </div>
+
+                {/* Extracted data grid */}
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-brand-50 dark:bg-brand-800 rounded-lg p-3">
-                    <div className="text-xs text-brand-500 mb-1">الاسم المستخرج</div>
+                  <div className="bg-brand-50 dark:bg-brand-800 rounded-xl p-3 col-span-2">
+                    <div className="text-xs text-brand-500 dark:text-brand-400 mb-1">الاسم المستخرج</div>
                     <div className="font-semibold text-brand-900 dark:text-brand-100">{aiResult.extracted_name || '—'}</div>
                   </div>
-                  <div className="bg-brand-50 dark:bg-brand-800 rounded-lg p-3">
-                    <div className="text-xs text-brand-500 mb-1">رقم الهوية المستخرج</div>
-                    <div className="font-mono font-semibold text-brand-900 dark:text-brand-100">{aiResult.extracted_id || '—'}</div>
+                  <div className="bg-brand-50 dark:bg-brand-800 rounded-xl p-3">
+                    <div className="text-xs text-brand-500 dark:text-brand-400 mb-1">رقم الهوية</div>
+                    <div className="font-mono font-semibold text-brand-900 dark:text-brand-100 text-xs">{aiResult.extracted_id || '—'}</div>
                   </div>
-                  <div className={`rounded-lg p-3 ${aiResult.is_badi ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400' : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400'}`}>
+                  <div className="bg-brand-50 dark:bg-brand-800 rounded-xl p-3">
+                    <div className="text-xs text-brand-500 dark:text-brand-400 mb-1">تاريخ الميلاد</div>
+                    <div className="font-semibold text-brand-900 dark:text-brand-100">{aiResult.extracted_birth_date || '—'}</div>
+                  </div>
+                  <div className={`rounded-xl p-3 ${aiResult.is_badi ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300' : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400'}`}>
                     <div className="text-xs mb-1">عائلة البادي</div>
                     <div className="font-bold">{aiResult.is_badi ? '✓ نعم' : '✗ لا'}</div>
                   </div>
-                  <div className={`rounded-lg p-3 ${aiResult.id_matches ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400' : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400'}`}>
-                    <div className="text-xs mb-1">رقم الهوية</div>
-                    <div className="font-bold">{aiResult.id_matches ? '✓ متطابق' : '✗ غير متطابق'}</div>
+                  <div className={`rounded-xl p-3 ${aiResult.id_matches ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300' : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400'}`}>
+                    <div className="text-xs mb-1">الجنس</div>
+                    <div className="font-bold">{aiResult.extracted_gender === 'male' ? 'ذكر' : aiResult.extracted_gender === 'female' ? 'أنثى' : '—'}</div>
                   </div>
                 </div>
-                {aiResult.verified && <p className="text-xs text-emerald-600 dark:text-emerald-400 text-center">تم تفعيل العضوية تلقائياً</p>}
+
+                {/* Updated fields */}
+                {aiResult.verified && aiResult.updated_fields?.length > 0 && (
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl px-4 py-3">
+                    <p className="font-bold text-blue-700 dark:text-blue-300 mb-1.5 text-xs">✦ تم تحديث الملف الشخصي بالبيانات المستخرجة:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(aiResult.updated_fields as string[]).map((f: string) => {
+                        const labels: Record<string, string> = {
+                          full_name: 'الاسم الكامل', national_id: 'رقم الهوية',
+                          birth_date: 'تاريخ الميلاد', gender: 'الجنس',
+                        }
+                        return (
+                          <span key={f} className="bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs px-2 py-0.5 rounded-full font-semibold">
+                            {labels[f] || f}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {aiResult.verified && (
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 text-center font-semibold">
+                    ✓ تم تفعيل العضوية وتحديث بيانات الملف الشخصي تلقائياً
+                  </p>
+                )}
               </>
             )}
           </div>
