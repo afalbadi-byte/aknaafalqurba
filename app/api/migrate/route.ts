@@ -65,6 +65,16 @@ const MIGRATIONS: { name: string; up: string }[] = [
       ALTER TABLE aid_requests ALTER COLUMN attachment TYPE TEXT;
     `,
   },
+  {
+    name: '007-payments-review-columns',
+    up: `
+      ALTER TABLE payments
+        ADD COLUMN IF NOT EXISTS reviewed_by     INT REFERENCES members(id) ON DELETE SET NULL,
+        ADD COLUMN IF NOT EXISTS reviewed_at     TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS reviewer_notes  TEXT,
+        ADD COLUMN IF NOT EXISTS updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW();
+    `,
+  },
 ]
 
 export async function GET() {
@@ -101,6 +111,13 @@ export async function GET() {
             WHERE table_name = 'expenses' AND column_name = 'attachment'
           `
           return { name: m.name, status: col?.data_type === 'text' ? 'applied' : 'pending' }
+        }
+        if (m.name.startsWith('007')) {
+          const [col] = await sql`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'payments' AND column_name = 'reviewed_by'
+          `
+          return { name: m.name, status: col ? 'applied' : 'pending' }
         }
         return { name: m.name, status: 'unknown' }
       } catch {

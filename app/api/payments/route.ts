@@ -12,18 +12,22 @@ export async function GET(req: NextRequest) {
   try {
     const rows = status
       ? await sql`
-          SELECT p.*, m.full_name, m.phone, r.full_name AS reviewer_name
+          SELECT p.id, p.member_id, p.amount, p.currency, p.payment_type, p.method,
+                 p.reference, p.receipt_path, p.status, p.period_year, p.period_month,
+                 p.notes, p.created_at,
+                 m.full_name, m.phone
           FROM payments p
-          JOIN members m  ON m.id = p.member_id
-          LEFT JOIN members r ON r.id = p.reviewed_by
+          JOIN members m ON m.id = p.member_id
           WHERE p.status = ${status}
           ORDER BY p.created_at DESC LIMIT 500
         `
       : await sql`
-          SELECT p.*, m.full_name, m.phone, r.full_name AS reviewer_name
+          SELECT p.id, p.member_id, p.amount, p.currency, p.payment_type, p.method,
+                 p.reference, p.receipt_path, p.status, p.period_year, p.period_month,
+                 p.notes, p.created_at,
+                 m.full_name, m.phone
           FROM payments p
-          JOIN members m  ON m.id = p.member_id
-          LEFT JOIN members r ON r.id = p.reviewed_by
+          JOIN members m ON m.id = p.member_id
           ORDER BY p.created_at DESC LIMIT 500
         `
     return jsonOK({ payments: rows })
