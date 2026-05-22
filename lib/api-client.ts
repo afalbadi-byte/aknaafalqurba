@@ -81,9 +81,10 @@ export const api = {
     remove: (id: number)            => del(`/api/payments/${id}`),
   },
   letterTemplates: {
-    list:   ()                            => get('/api/letter-templates'),
-    create: (data: object)                => post('/api/letter-templates', data),
-    remove: (id: number)                  => del(`/api/letter-templates/${id}`),
+    list:   ()             => get('/api/letter-templates'),
+    create: (data: object) => post('/api/letter-templates', data),
+    seed:   ()             => post('/api/letter-templates/seed'),
+    remove: (id: number)   => del(`/api/letter-templates/${id}`),
   },
   expenses: {
     list:   ()                      => get('/api/expenses'),

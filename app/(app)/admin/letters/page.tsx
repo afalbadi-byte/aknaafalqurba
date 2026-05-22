@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { api } from '@/lib/api-client'
-import { FilePen, Printer, RefreshCw, Loader2, ArrowRight, Trash2, BookTemplate } from 'lucide-react'
+import { FilePen, Printer, RefreshCw, Loader2, Trash2, BookTemplate, Sparkles } from 'lucide-react'
 
 // ReactQuill needs SSR disabled (accesses document on load)
 const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false })
@@ -167,7 +167,7 @@ export default function LetterGenerator() {
   const [showSaveForm,  setShowSaveForm]  = useState(false)
   const [saveMeta,      setSaveMeta]      = useState({ category: 'إدارية عامة', title: '' })
   const [saving,        setSaving]        = useState(false)
-  const [quillLoaded,   setQuillLoaded]   = useState(false)
+  const [seeding,       setSeeding]       = useState(false)
 
   /* ── load user + settings + templates ── */
   useEffect(() => {
@@ -229,6 +229,15 @@ export default function LetterGenerator() {
     setTemplates(ts => ts.filter(t => t.id !== id))
   }
 
+  async function seedTemplates() {
+    setSeeding(true)
+    try {
+      await api.letterTemplates.seed()
+      const r = await api.letterTemplates.list()
+      setTemplates(r.templates || [])
+    } finally { setSeeding(false) }
+  }
+
   /* ── print ── */
   function handlePrint() {
     const html = buildPrintHTML(data, settings)
@@ -267,6 +276,18 @@ export default function LetterGenerator() {
 
           {/* Controls */}
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
+
+            {/* Seed banner — shown when no templates loaded yet */}
+            {templates.length === 0 && (
+              <div className="rounded-xl border border-dashed border-[#c5a059]/40 bg-[#c5a059]/5 p-4 text-center">
+                <p className="text-xs text-white/60 mb-3">لا توجد نماذج جاهزة — يمكنك تهيئة النماذج الرسمية للصندوق دفعةً واحدة</p>
+                <button onClick={seedTemplates} disabled={seeding}
+                  className="flex items-center gap-2 mx-auto bg-[#c5a059] text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-yellow-600 transition">
+                  {seeding ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                  {seeding ? 'جاري التهيئة…' : 'تهيئة النماذج الرسمية'}
+                </button>
+              </div>
+            )}
 
             {/* Template selector */}
             <div>
