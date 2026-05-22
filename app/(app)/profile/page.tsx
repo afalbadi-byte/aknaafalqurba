@@ -4,7 +4,7 @@ import { api } from '@/lib/api-client'
 import { ROLE_LABELS, RELATION_LABELS, BRANCHES, GENDER_LABELS, STATUS_LABELS, statusBadge } from '@/lib/utils'
 import {
   Save, Lock, UserPlus, Trash2, Loader2, Mail, ShieldCheck,
-  CheckCircle2, Camera, X as XIcon, BrainCircuit, Users,
+  CheckCircle2, Camera, X as XIcon, BrainCircuit, Users, Smartphone,
 } from 'lucide-react'
 import { Avatar } from '@/components/app-shell'
 
@@ -173,6 +173,48 @@ export default function Profile() {
     finally { setEmailBusy(false) }
   }
 
+  // ----- Phone verification flow -----
+  const [phoneStep,    setPhoneStep]    = useState<'idle' | 'code'>('idle')
+  const [phoneCode,    setPhoneCode]    = useState('')
+  const [phoneBusy,    setPhoneBusy]    = useState(false)
+  const [phoneMsg,     setPhoneMsg]     = useState<any>(null)
+  const [phoneCooldown, setPhoneCooldown] = useState(0)
+
+  // countdown timer for resend cooldown
+  useEffect(() => {
+    if (phoneCooldown <= 0) return
+    const t = setTimeout(() => setPhoneCooldown(c => c - 1), 1000)
+    return () => clearTimeout(t)
+  }, [phoneCooldown])
+
+  async function sendPhoneOtp() {
+    setPhoneBusy(true); setPhoneMsg(null)
+    try {
+      await api.auth.phoneOtpSend()
+      setPhoneStep('code')
+      setPhoneMsg({ ok: true, text: 'تم إرسال الرمز إلى جوالك' })
+      setPhoneCooldown(60)
+    } catch (err: any) {
+      if (err.code === 'otp_cooldown') {
+        const secs = parseInt(err.message.match(/\d+/)?.[0] || '60')
+        setPhoneCooldown(secs)
+      }
+      setPhoneMsg({ ok: false, text: err.message })
+    }
+    finally { setPhoneBusy(false) }
+  }
+
+  async function confirmPhoneOtp(e: React.FormEvent) {
+    e.preventDefault(); setPhoneBusy(true); setPhoneMsg(null)
+    try {
+      await api.auth.phoneOtpVerify(phoneCode)
+      setUser((u: any) => ({ ...u, phone_verified: true }))
+      setPhoneMsg({ ok: true, text: '✅ تم تفعيل رقم جوالك بنجاح!' })
+      setPhoneStep('idle'); setPhoneCode('')
+    } catch (err: any) { setPhoneMsg({ ok: false, text: err.message }) }
+    finally { setPhoneBusy(false) }
+  }
+
   // ----- Dependents -----
   async function addDep(e: React.FormEvent) {
     e.preventDefault()
@@ -264,7 +306,17 @@ export default function Profile() {
           </div>
           <form onSubmit={saveInfo} className="p-6 grid sm:grid-cols-2 gap-4">
             <F label="الاسم الكامل"  v={form.full_name}        on={(v: string) => set('full_name', v)} />
-            <F label="رقم الجوال"    v={form.phone}             on={(v: string) => set('phone', v)} />
+            <div>
+              <label className="label">رقم الجوال</label>
+              <div className="relative">
+                <input className="input" value={form.phone ?? ''} onChange={e => set('phone', e.target.value)} dir="ltr" />
+                {user.phone && (
+                  user.phone_verified
+                    ? <span className="absolute left-3 top-1/2 -translate-y-1/2 badge badge-approved text-[10px]"><CheckCircle2 size={10}/> مؤكد</span>
+                    : <span className="absolute left-3 top-1/2 -translate-y-1/2 badge badge-pending text-[10px]">غير مؤكد</span>
+                )}
+              </div>
+            </div>
             <div>
               <label className="label">البريد الإلكتروني</label>
               <div className="input dark:bg-brand-800 dark:border-brand-600 bg-brand-50/40 dark:bg-brand-800/60 flex items-center justify-between gap-2 cursor-not-allowed">
@@ -447,6 +499,76 @@ export default function Profile() {
                         تفعيل
                       </button>
                     </div>
+                  </form>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Phone verification (only when unverified) */}
+          {user.phone && !user.phone_verified && (
+            <div className="card border-amber-300 dark:border-amber-600 overflow-hidden">
+              <div className="px-5 py-4 border-b border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20">
+                <h3 className="font-bold text-amber-800 dark:text-amber-300 flex items-center gap-2 text-sm">
+                  <Smartphone size={16} /> تفعيل رقم الجوال
+                </h3>
+              </div>
+              <div className="p-5 space-y-3">
+                <p className="text-xs text-brand-600 dark:text-brand-400">
+                  جوالك <strong className="text-brand-800 dark:text-brand-200" dir="ltr">{user.phone}</strong> لم يُفعَّل بعد.
+                  فعّله لاستقبال رموز التحقق عبر الرسائل القصيرة.
+                </p>
+                {phoneStep === 'idle' ? (
+                  <>
+                    {phoneMsg && (
+                      <div className={`text-xs rounded px-3 py-2 ${phoneMsg.ok ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'}`}>
+                        {phoneMsg.text}
+                      </div>
+                    )}
+                    <button className="btn-primary w-full" onClick={sendPhoneOtp} disabled={phoneBusy || phoneCooldown > 0}>
+                      {phoneBusy ? <Loader2 className="animate-spin" size={14} /> : <Smartphone size={14} />}
+                      {phoneCooldown > 0 ? `إعادة الإرسال بعد ${phoneCooldown}ث` : 'إرسال رمز التفعيل'}
+                    </button>
+                  </>
+                ) : (
+                  <form onSubmit={confirmPhoneOtp} className="space-y-3">
+                    <div className="text-xs bg-brand-50 dark:bg-brand-800/60 text-brand-600 dark:text-brand-400 rounded px-3 py-2">
+                      <ShieldCheck size={13} className="inline ml-1" />
+                      أرسلنا رمزاً إلى جوالك <strong dir="ltr">{user.phone}</strong>
+                    </div>
+                    <input
+                      className="input text-center text-2xl font-bold tracking-widest font-mono"
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="• • • • • •"
+                      value={phoneCode}
+                      onChange={e => setPhoneCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      autoFocus
+                      required
+                    />
+                    {phoneMsg && (
+                      <div className={`text-xs rounded px-3 py-2 ${phoneMsg.ok ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'}`}>
+                        {phoneMsg.text}
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <button type="button" className="btn-secondary flex-1"
+                        onClick={() => { setPhoneStep('idle'); setPhoneMsg(null); setPhoneCode('') }}>
+                        إلغاء
+                      </button>
+                      <button type="submit" className="btn-primary flex-1"
+                        disabled={phoneBusy || phoneCode.length !== 6}>
+                        {phoneBusy && <Loader2 className="animate-spin" size={14} />}
+                        تفعيل
+                      </button>
+                    </div>
+                    {phoneCooldown <= 0 && (
+                      <button type="button" className="text-xs text-brand-500 hover:text-brand-700 dark:hover:text-brand-300 w-full"
+                        onClick={sendPhoneOtp} disabled={phoneBusy}>
+                        إعادة إرسال الرمز
+                      </button>
+                    )}
                   </form>
                 )}
               </div>

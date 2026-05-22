@@ -5,16 +5,18 @@ export async function GET() {
   const user = await currentUser()
   if (!user) return jsonError('unauthenticated', 'يرجى تسجيل الدخول', 401)
 
-  // Fetch gender + generation_number separately (may not exist before migration 010)
+  // Fetch extra columns added by later migrations
   let gender: string | null = null
   let generation_number: number | null = null
+  let phone_verified = false
   try {
-    const [extra] = await sql<{ gender: string | null; generation_number: number | null }[]>`
-      SELECT gender, generation_number FROM members WHERE id = ${user.id}
+    const [extra] = await sql<{ gender: string | null; generation_number: number | null; phone_verified: boolean }[]>`
+      SELECT gender, generation_number, phone_verified FROM members WHERE id = ${user.id}
     `
     gender = extra?.gender ?? null
     generation_number = extra?.generation_number ?? null
-  } catch { /* migration 010 not yet applied */ }
+    phone_verified = extra?.phone_verified ?? false
+  } catch { /* migration not yet applied */ }
 
-  return jsonOK({ user: { ...user, gender, generation_number } })
+  return jsonOK({ user: { ...user, gender, generation_number, phone_verified } })
 }
