@@ -52,6 +52,19 @@ const MIGRATIONS: { name: string; up: string }[] = [
       ALTER TABLE members ALTER COLUMN avatar TYPE TEXT;
     `,
   },
+  {
+    name: '005-receipt-text',
+    up: `
+      ALTER TABLE payments ALTER COLUMN receipt_path TYPE TEXT;
+    `,
+  },
+  {
+    name: '006-expense-attachment-text',
+    up: `
+      ALTER TABLE expenses ALTER COLUMN attachment_path TYPE TEXT;
+      ALTER TABLE aid_requests ALTER COLUMN attachment_path TYPE TEXT;
+    `,
+  },
 ]
 
 export async function GET() {
@@ -69,10 +82,23 @@ export async function GET() {
           return { name: m.name, status: 'applied' }
         }
         if (m.name.startsWith('004')) {
-          // Check if avatar column is TEXT (not VARCHAR)
           const [col] = await sql`
             SELECT data_type FROM information_schema.columns
             WHERE table_name = 'members' AND column_name = 'avatar'
+          `
+          return { name: m.name, status: col?.data_type === 'text' ? 'applied' : 'pending' }
+        }
+        if (m.name.startsWith('005')) {
+          const [col] = await sql`
+            SELECT data_type FROM information_schema.columns
+            WHERE table_name = 'payments' AND column_name = 'receipt_path'
+          `
+          return { name: m.name, status: col?.data_type === 'text' ? 'applied' : 'pending' }
+        }
+        if (m.name.startsWith('006')) {
+          const [col] = await sql`
+            SELECT data_type FROM information_schema.columns
+            WHERE table_name = 'expenses' AND column_name = 'attachment_path'
           `
           return { name: m.name, status: col?.data_type === 'text' ? 'applied' : 'pending' }
         }
