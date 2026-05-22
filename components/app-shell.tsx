@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, User, CreditCard, FileHeart, Newspaper,
   Users, Banknote, Settings as SettingsIcon, Menu, X, LogOut, Bell, Shield,
-  Sun, Moon, Monitor, Database, ClipboardList,
+  Sun, Moon, Monitor, Database, ClipboardList, ShieldCheck,
 } from 'lucide-react'
 import Logo from './logo'
 import { api } from '@/lib/api-client'
@@ -35,8 +35,9 @@ const ADMIN_NAV = [
   { to: '/admin/news',      label: 'إدارة الأخبار',   icon: Newspaper },
   { to: '/admin/reports',   label: 'التقارير المالية', icon: LayoutDashboard },
   { to: '/admin/settings',  label: 'الإعدادات',       icon: SettingsIcon },
-  { to: '/admin/migrate',   label: 'مهاجرات DB',      icon: Database },
-  { to: '/admin/logs',      label: 'سجل النشاط',      icon: ClipboardList },
+  { to: '/admin/roles',     label: 'الصلاحيات',        icon: ShieldCheck },
+  { to: '/admin/migrate',   label: 'مهاجرات DB',       icon: Database },
+  { to: '/admin/logs',      label: 'سجل النشاط',       icon: ClipboardList },
 ]
 const COMMITTEE = ['admin', 'president', 'treasurer', 'aid_committee']
 
