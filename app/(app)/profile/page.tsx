@@ -7,6 +7,7 @@ import {
   CheckCircle2, Camera, X as XIcon, BrainCircuit, Users,
 } from 'lucide-react'
 import { Avatar } from '@/components/app-shell'
+import Modal from '@/components/modal'
 
 export default function Profile() {
   const [user, setUser] = useState<any>(null)
@@ -30,11 +31,12 @@ export default function Profile() {
   const [avatarBusy, setAvatarBusy] = useState(false)
   const [avatarMsg,  setAvatarMsg]  = useState<any>(null)
 
-  // Signature — upload + draw
+  // Signature — modal (draw + upload)
   const sigRef = useRef<HTMLInputElement>(null)
-  const [sigBusy, setSigBusy] = useState(false)
-  const [sigMsg,  setSigMsg]  = useState<any>(null)
-  const [sigMode, setSigMode] = useState<'draw' | 'upload'>('draw')
+  const [sigBusy, setSigBusy]   = useState(false)
+  const [sigMsg,  setSigMsg]    = useState<any>(null)
+  const [sigOpen, setSigOpen]   = useState(false)
+  const [sigMode, setSigMode]   = useState<'draw' | 'upload'>('draw')
   const padRef = useRef<HTMLCanvasElement>(null)
   const drawingRef = useRef(false)
   const lastPtRef  = useRef<{ x: number; y: number } | null>(null)
@@ -134,7 +136,8 @@ export default function Profile() {
       const fd = new FormData(); fd.append('signature', file, file.name)
       const r  = await api.members.signatureUpload(fd)
       setUser((u: any) => ({ ...u, signature: r.signature }))
-      setSigMsg({ ok: true, text: 'تم حفظ التوقيع' })
+      setSigMsg({ ok: true, text: 'تم حفظ التوقيع بنجاح' })
+      setSigOpen(false)
     } catch (err: any) { setSigMsg({ ok: false, text: err.message }) }
     finally { setSigBusy(false); if (sigRef.current) sigRef.current.value = '' }
   }
@@ -205,7 +208,13 @@ export default function Profile() {
     ctx.lineJoin = 'round'
   }
 
-  useEffect(() => { if (sigMode === 'draw') padInit() }, [sigMode])
+  // Init pad whenever modal opens in draw mode
+  useEffect(() => {
+    if (sigOpen && sigMode === 'draw') {
+      // Allow canvas to mount before initialising the stroke style
+      setTimeout(padInit, 0)
+    }
+  }, [sigOpen, sigMode])
 
   async function saveDrawnSignature() {
     const canvas = padRef.current; if (!canvas) return
@@ -220,10 +229,17 @@ export default function Profile() {
       const fd = new FormData(); fd.append('signature', blob, 'signature.png')
       const r = await api.members.signatureUpload(fd)
       setUser((u: any) => ({ ...u, signature: r.signature }))
-      setSigMsg({ ok: true, text: 'تم حفظ التوقيع' })
+      setSigMsg({ ok: true, text: 'تم حفظ التوقيع بنجاح' })
       padClear()
+      setSigOpen(false)
     } catch (err: any) { setSigMsg({ ok: false, text: err.message }) }
     finally { setSigBusy(false) }
+  }
+
+  function closeSigModal() {
+    if (sigBusy) return
+    setSigOpen(false)
+    setSigMsg(null)
   }
 
   // ----- Email verification flow (existing unverified email) -----
@@ -514,93 +530,35 @@ export default function Profile() {
               التوقيع الرسمي
             </h3>
             <p className="text-xs text-brand-400 dark:text-brand-500 mb-3">
-              يظهر في الخطابات الرسمية أسفل اسمك. يمكنك رسمه مباشرةً أو رفع صورة.
+              يظهر في الخطابات الرسمية أسفل اسمك.
             </p>
 
-            {user.signature && (
+            {user.signature ? (
               <div className="mb-3 border border-slate-200 dark:border-brand-700 rounded-xl p-3 bg-slate-50 dark:bg-brand-800">
-                <p className="text-[10px] text-brand-400 mb-1.5">التوقيع الحالي</p>
-                <div className="flex items-center justify-center">
-                  <img src={user.signature} alt="التوقيع" className="max-h-16 max-w-full object-contain" />
+                <p className="text-[10px] text-brand-400 mb-1.5 font-semibold">التوقيع الحالي</p>
+                <div className="flex items-center justify-center min-h-[64px]">
+                  <img src={user.signature} alt="" className="max-h-20 max-w-full object-contain" />
                 </div>
+              </div>
+            ) : (
+              <div className="mb-3 border-2 border-dashed border-brand-200 dark:border-brand-700 rounded-xl p-5 bg-slate-50 dark:bg-brand-800 text-center">
+                <p className="text-xs text-brand-400 dark:text-brand-500">لم يُسجَّل توقيع بعد</p>
               </div>
             )}
 
-            {/* Mode switcher */}
-            <div className="flex items-center gap-1 mb-3 bg-slate-100 dark:bg-brand-800 p-1 rounded-xl">
-              <button
-                onClick={() => setSigMode('draw')}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                  sigMode === 'draw'
-                    ? 'bg-white dark:bg-brand-700 text-[#1a365d] dark:text-brand-50 shadow-sm'
-                    : 'text-brand-500 dark:text-brand-400 hover:text-brand-700'
-                }`}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/>
-                </svg>
-                ارسم
-              </button>
-              <button
-                onClick={() => setSigMode('upload')}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                  sigMode === 'upload'
-                    ? 'bg-white dark:bg-brand-700 text-[#1a365d] dark:text-brand-50 shadow-sm'
-                    : 'text-brand-500 dark:text-brand-400 hover:text-brand-700'
-                }`}>
-                <Camera size={12} /> ارفع صورة
-              </button>
-            </div>
-
-            <input ref={sigRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleSignatureChange} />
-
-            {sigMsg && (
+            {sigMsg && !sigOpen && (
               <div className={`mb-2 text-xs rounded px-3 py-2 ${sigMsg.ok ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'}`}>
                 {sigMsg.text}
               </div>
             )}
 
-            {/* DRAW mode */}
-            {sigMode === 'draw' && (
-              <div className="space-y-2">
-                <div className="border-2 border-dashed border-brand-200 dark:border-brand-700 rounded-xl p-2 bg-white">
-                  <canvas
-                    ref={padRef}
-                    width={640}
-                    height={200}
-                    className="w-full bg-white rounded cursor-crosshair select-none touch-none"
-                    style={{ aspectRatio: '16/5' }}
-                    onMouseDown={padStart}
-                    onMouseMove={padMove}
-                    onMouseUp={padEnd}
-                    onMouseLeave={padEnd}
-                    onTouchStart={padStart}
-                    onTouchMove={padMove}
-                    onTouchEnd={padEnd}
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={saveDrawnSignature} disabled={sigBusy}
-                    className="flex-1 btn-primary text-xs">
-                    {sigBusy ? <Loader2 className="animate-spin" size={13} /> : <Save size={13} />}
-                    حفظ الرسمة
-                  </button>
-                  <button onClick={padClear} disabled={sigBusy}
-                    className="btn-secondary text-xs px-3">
-                    <XIcon size={13} /> مسح
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* UPLOAD mode */}
-            {sigMode === 'upload' && (
-              <div className="flex gap-2">
-                <button className="btn-secondary flex-1 text-xs" onClick={() => sigRef.current?.click()} disabled={sigBusy}>
-                  {sigBusy ? <Loader2 className="animate-spin" size={13} /> : <Camera size={13} />}
-                  {user.signature ? 'تغيير الصورة' : 'اختر صورة'}
-                </button>
-              </div>
-            )}
+            <button onClick={() => { setSigMode('draw'); setSigOpen(true); setSigMsg(null) }}
+              className="btn-primary w-full text-sm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+              </svg>
+              {user.signature ? 'تحديث التوقيع' : 'أضف توقيعك'}
+            </button>
 
             {user.signature && (
               <button onClick={removeSignature} disabled={sigBusy}
@@ -608,6 +566,8 @@ export default function Profile() {
                 <XIcon size={12} /> حذف التوقيع الحالي
               </button>
             )}
+
+            <input ref={sigRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleSignatureChange} />
           </div>
 
           {/* Email verification (only when unverified) */}
@@ -932,6 +892,103 @@ export default function Profile() {
 
         </div>
       </div>
+
+      {/* ── Signature modal ─────────────────────────────────────── */}
+      <Modal open={sigOpen} onClose={closeSigModal} title="إضافة توقيع رسمي" size="xl">
+        <div className="space-y-4">
+          {/* Mode tabs */}
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-brand-800 p-1 rounded-xl">
+            <button
+              onClick={() => setSigMode('draw')}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition ${
+                sigMode === 'draw'
+                  ? 'bg-white dark:bg-brand-700 text-[#1a365d] dark:text-brand-50 shadow-sm'
+                  : 'text-brand-500 dark:text-brand-400 hover:text-brand-700'
+              }`}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+              </svg>
+              ارسم توقيعك
+            </button>
+            <button
+              onClick={() => setSigMode('upload')}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition ${
+                sigMode === 'upload'
+                  ? 'bg-white dark:bg-brand-700 text-[#1a365d] dark:text-brand-50 shadow-sm'
+                  : 'text-brand-500 dark:text-brand-400 hover:text-brand-700'
+              }`}>
+              <Camera size={14} /> ارفع صورة جاهزة
+            </button>
+          </div>
+
+          {sigMsg && (
+            <div className={`text-sm rounded-xl px-4 py-2.5 ${sigMsg.ok ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'}`}>
+              {sigMsg.text}
+            </div>
+          )}
+
+          {sigMode === 'draw' && (
+            <>
+              <p className="text-xs text-brand-500 dark:text-brand-400">
+                وقّع داخل الإطار باستخدام الفأرة، أو بإصبعك إن كنت تستخدم جوّالاً أو شاشة لمس.
+              </p>
+              <div className="border-2 border-dashed border-brand-200 dark:border-brand-700 rounded-2xl p-3 bg-white">
+                <canvas
+                  ref={padRef}
+                  width={1200}
+                  height={400}
+                  className="w-full bg-white rounded-xl cursor-crosshair select-none touch-none"
+                  style={{ aspectRatio: '3/1' }}
+                  onMouseDown={padStart}
+                  onMouseMove={padMove}
+                  onMouseUp={padEnd}
+                  onMouseLeave={padEnd}
+                  onTouchStart={padStart}
+                  onTouchMove={padMove}
+                  onTouchEnd={padEnd}
+                />
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <button onClick={padClear} disabled={sigBusy}
+                  className="btn-secondary text-sm">
+                  <XIcon size={14} /> مسح وإعادة المحاولة
+                </button>
+                <div className="flex gap-2">
+                  <button onClick={closeSigModal} disabled={sigBusy}
+                    className="btn-ghost text-sm">
+                    إلغاء
+                  </button>
+                  <button onClick={saveDrawnSignature} disabled={sigBusy}
+                    className="btn-primary text-sm">
+                    {sigBusy ? <Loader2 className="animate-spin" size={15} /> : <Save size={15} />}
+                    احفظ التوقيع
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {sigMode === 'upload' && (
+            <>
+              <p className="text-xs text-brand-500 dark:text-brand-400">
+                اختر صورة توقيع جاهزة من جهازك. يُفضّل أن تكون بخلفية بيضاء أو شفافة (PNG/JPG/WebP، حد أقصى ١٥٠ كيلوبايت).
+              </p>
+              <div className="border-2 border-dashed border-brand-200 dark:border-brand-700 rounded-2xl p-10 bg-slate-50 dark:bg-brand-800 text-center">
+                <button onClick={() => sigRef.current?.click()} disabled={sigBusy}
+                  className="btn-primary text-sm">
+                  {sigBusy ? <Loader2 className="animate-spin" size={15} /> : <Camera size={15} />}
+                  اختيار صورة من الجهاز
+                </button>
+              </div>
+              <div className="flex justify-end">
+                <button onClick={closeSigModal} disabled={sigBusy} className="btn-ghost text-sm">
+                  إلغاء
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </Modal>
     </div>
   )
 }
