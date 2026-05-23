@@ -13,7 +13,7 @@ import {
   Hash, CalendarDays, AlignLeft, User, PenLine, Tag, ChevronDown,
   Save, Bold, Italic, UnderlineIcon, List, ListOrdered,
   AlignRight, AlignCenter, AlignJustify, Table2, ImageIcon, Heading2,
-  X, FileText,
+  X, FileText, Users as UsersIcon, Inbox, CheckCircle2, Clock, Eye,
 } from 'lucide-react'
 
 /* ─────────────────────────────────────────────────────────────
@@ -378,7 +378,15 @@ const CATEGORIES = [
   'إدارية عامة', 'مالية', 'عضوية', 'دعم واجتماعي',
   'محاضر اجتماعات', 'إعلانات وأخبار',
 ]
-const STAMP_ROLES = ['admin', 'president', 'secretary']
+const ROLE_LABELS_SHORT: Record<string, string> = {
+  admin: 'مدير النظام', president: 'رئيس الصندوق', secretary: 'أمين السر',
+  treasurer: 'المدير المالي', aid_committee: 'لجنة الدعم',
+}
+function canUseStampFor(u: any): boolean {
+  if (!u) return false
+  if (u.role === 'admin' || u.role === 'president') return true
+  return Array.isArray(u.permissions) && u.permissions.includes('letter.stamp')
+}
 
 function ToolBtn({ onClick, active, title, children }: {
   onClick: () => void; active?: boolean; title: string; children: React.ReactNode
@@ -417,13 +425,26 @@ export default function LetterGenerator() {
   const [saving,    setSaving]    = useState(false)
   const [seeding,   setSeeding]   = useState(false)
   const [catOpen,   setCatOpen]   = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'templates' | 'saved'>('templates')
 
   const [showLetterSave, setShowLetterSave]   = useState(false)
   const [savingLetter,   setSavingLetter]     = useState(false)
   const [currentLetterId, setCurrentLetterId] = useState<number | null>(null)
 
-  const canUseStamp = user && STAMP_ROLES.includes(user.role)
+  /* Recipients + incoming */
+  const [staff,         setStaff]         = useState<any[]>([])
+  const [recipientIds,  setRecipientIds]  = useState<number[]>([])
+  const [showRecipPicker, setShowRecipPicker] = useState(false)
+  const [incoming,      setIncoming]      = useState<any[]>([])
+  const [letterBox,     setLetterBox]     = useState<'templates' | 'saved' | 'incoming'>('templates')
+
+  /* Approval modal */
+  const [reviewingLetter, setReviewingLetter] = useState<any>(null)
+  const [reviewLoading,   setReviewLoading]   = useState(false)
+  const [reviewUseStamp,  setReviewUseStamp]  = useState(false)
+  const [reviewNotes,     setReviewNotes]     = useState('')
+  const [approving,       setApproving]       = useState(false)
+
+  const canUseStamp = canUseStampFor(user)
   const signature   = user?.signature || null
 
   /* ── TipTap editor ── */
@@ -464,8 +485,10 @@ export default function LetterGenerator() {
     Promise.all([
       api.auth.me().catch(() => null),
       api.letterTemplates.list().catch(() => ({ templates: [] })),
-      api.letters.list().catch(() => ({ letters: [] })),
-    ]).then(([me, t, lts]) => {
+      api.letters.list('outgoing').catch(() => ({ letters: [] })),
+      api.letters.list('incoming').catch(() => ({ letters: [] })),
+      api.members.staff().catch(() => ({ staff: [] })),
+    ]).then(([me, t, out, inc, st]) => {
       if (me?.user) {
         setUser(me.user)
         setData(d => ({
@@ -479,9 +502,50 @@ export default function LetterGenerator() {
         }))
       }
       setTemplates(t?.templates || [])
-      setSavedLetters(lts?.letters || [])
+      setSavedLetters(out?.letters || [])
+      setIncoming(inc?.letters || [])
+      setStaff((st?.staff || []).filter((s: any) => s.id !== me?.user?.id))
     }).finally(() => setLoading(false))
   }, [])
+
+  function toggleRecipient(id: number) {
+    setRecipientIds(rs => rs.includes(id) ? rs.filter(x => x !== id) : [...rs, id])
+  }
+  function selectAllRecipients() { setRecipientIds(staff.map(s => s.id)) }
+  function clearRecipients()     { setRecipientIds([]) }
+
+  async function openIncoming(lt: any) {
+    setReviewLoading(true)
+    setReviewingLetter({ id: lt.id })  // open modal immediately
+    setReviewUseStamp(false); setReviewNotes('')
+    try {
+      const r = await api.letters.get(lt.id)
+      setReviewingLetter(r)
+      // refresh incoming list (status may flip to viewed)
+      const inc = await api.letters.list('incoming')
+      setIncoming(inc.letters || [])
+    } catch (e: any) {
+      alert(e.message || 'فشل التحميل')
+      setReviewingLetter(null)
+    } finally { setReviewLoading(false) }
+  }
+
+  async function approveLetter() {
+    if (!reviewingLetter?.letter) return
+    setApproving(true)
+    try {
+      await api.letters.approve(reviewingLetter.letter.id, {
+        signature:  signature || null,
+        use_stamp:  canUseStamp && reviewUseStamp,
+        notes:      reviewNotes.trim() || null,
+      })
+      const inc = await api.letters.list('incoming')
+      setIncoming(inc.letters || [])
+      setReviewingLetter(null)
+    } catch (e: any) {
+      alert(e.message || 'فشل الاعتماد')
+    } finally { setApproving(false) }
+  }
 
   const grouped = templates.reduce<Record<string, any[]>>((acc, t) => {
     ;(acc[t.category] ||= []).push(t); return acc
@@ -530,10 +594,12 @@ export default function LetterGenerator() {
         recipient: data.recipient, subject: data.subject,
         body: data.body, sign_name: data.signName, sign_title: data.signTitle,
         show_stamp: canUseStamp ? showStamp : false,
+        drafter_signature: signature || null,
+        recipient_ids: recipientIds,
       }
       if (currentLetterId) await api.letters.update(currentLetterId, payload)
       else { const r = await api.letters.create(payload); setCurrentLetterId(r.letter.id) }
-      const lts = await api.letters.list()
+      const lts = await api.letters.list('outgoing')
       setSavedLetters(lts.letters || [])
       setShowLetterSave(false)
     } finally { setSavingLetter(false) }
@@ -544,6 +610,11 @@ export default function LetterGenerator() {
     await api.letters.remove(id)
     setSavedLetters(lts => lts.filter(l => l.id !== id))
     if (currentLetterId === id) setCurrentLetterId(null)
+  }
+
+  function loadOutgoingLetter(lt: any) {
+    // Same as loadSavedLetter but explicit (for outgoing tab)
+    loadSavedLetter(lt)
   }
 
   async function seedTemplates() {
@@ -684,19 +755,183 @@ export default function LetterGenerator() {
                 <X size={18} className="text-brand-400" />
               </button>
             </div>
-            <p className="text-sm text-brand-500 dark:text-brand-400 mb-4">
+            <p className="text-sm text-brand-500 dark:text-brand-400 mb-3">
               {currentLetterId ? 'سيتم تحديث الخطاب المحفوظ.' : 'سيحفظ الخطاب مع كل بياناته لاسترجاعه لاحقاً.'}
             </p>
+            {recipientIds.length > 0 && (
+              <div className="bg-[#1a365d]/5 dark:bg-[#1a365d]/20 text-[#1a365d] dark:text-brand-100 text-xs rounded-xl px-3 py-2 mb-3 flex items-center gap-2">
+                <UsersIcon size={13} />
+                سيُرسل للاطلاع إلى {recipientIds.length} موظف{recipientIds.length > 2 ? 'اً' : ''}.
+              </div>
+            )}
             <div className="flex gap-2">
               <button onClick={saveLetter} disabled={savingLetter}
                 className="flex-1 bg-[#1a365d] hover:bg-[#c5a059] text-white py-2.5 rounded-xl font-bold text-sm transition flex items-center justify-center gap-2">
                 {savingLetter ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                {currentLetterId ? 'تحديث' : 'حفظ'}
+                {currentLetterId ? 'تحديث' : 'حفظ وإرسال'}
               </button>
               <button onClick={() => setShowLetterSave(false)}
                 className="px-4 bg-slate-100 dark:bg-brand-800 text-brand-600 dark:text-brand-300 py-2.5 rounded-xl font-bold text-sm">
                 إلغاء
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Incoming letter review + approval modal */}
+      {reviewingLetter && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-brand-900 rounded-2xl shadow-2xl w-full max-w-3xl my-8">
+            <div className="px-5 py-4 border-b border-slate-100 dark:border-brand-700 flex items-center justify-between">
+              <h2 className="font-black text-[#1a365d] dark:text-brand-50 text-lg flex items-center gap-2">
+                <Inbox size={18} />
+                {reviewingLetter.letter?.subject || 'خطاب وارد'}
+              </h2>
+              <button onClick={() => setReviewingLetter(null)} className="text-brand-400 hover:text-brand-600">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+              {reviewLoading || !reviewingLetter.letter ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="animate-spin text-[#c5a059]" size={32} />
+                </div>
+              ) : (
+                <>
+                  {/* Metadata */}
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="bg-slate-50 dark:bg-brand-800 rounded-xl p-3">
+                      <p className="text-[10px] text-brand-400 mb-0.5">من المحرر</p>
+                      <p className="font-semibold text-brand-900 dark:text-brand-100">{reviewingLetter.letter.created_by_name}</p>
+                    </div>
+                    <div className="bg-slate-50 dark:bg-brand-800 rounded-xl p-3">
+                      <p className="text-[10px] text-brand-400 mb-0.5">التاريخ</p>
+                      <p className="font-semibold text-brand-900 dark:text-brand-100">{reviewingLetter.letter.date || new Date(reviewingLetter.letter.created_at).toLocaleDateString('ar-SA')}</p>
+                    </div>
+                    {reviewingLetter.letter.reference && (
+                      <div className="bg-slate-50 dark:bg-brand-800 rounded-xl p-3 col-span-2">
+                        <p className="text-[10px] text-brand-400 mb-0.5">الرقم المرجعي</p>
+                        <p className="font-semibold text-brand-900 dark:text-brand-100 font-mono text-xs">{reviewingLetter.letter.reference}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Body */}
+                  <div className="border border-slate-200 dark:border-brand-700 rounded-xl p-4 bg-white dark:bg-brand-950">
+                    {reviewingLetter.letter.recipient && (
+                      <p className="text-sm text-[#1a365d] dark:text-brand-200 font-bold mb-3">السادة / {reviewingLetter.letter.recipient}</p>
+                    )}
+                    <div className="lp text-[13.5px] text-slate-800 dark:text-slate-200"
+                      style={{ lineHeight: 2.2, textAlign: 'justify' }}
+                      dangerouslySetInnerHTML={{ __html: reviewingLetter.letter.body || '' }} />
+
+                    {/* Drafter signature/stamp snapshot */}
+                    {(reviewingLetter.letter.drafter_signature || reviewingLetter.letter.drafter_used_stamp) && (
+                      <div className="mt-6 pt-4 border-t border-dashed border-slate-200 dark:border-brand-700 flex items-end justify-between" dir="ltr">
+                        <div>
+                          {reviewingLetter.letter.drafter_used_stamp && (
+                            <img src="/brand/stamp.png" alt="" className="w-[120px] opacity-90" />
+                          )}
+                        </div>
+                        <div className="text-center" dir="rtl">
+                          {reviewingLetter.letter.sign_title && (
+                            <p className="text-[11px] font-bold text-[#1a365d] dark:text-brand-200">{reviewingLetter.letter.sign_title}</p>
+                          )}
+                          {reviewingLetter.letter.drafter_signature && (
+                            <img src={reviewingLetter.letter.drafter_signature} alt="" className="max-h-12 mx-auto" />
+                          )}
+                          <p className="text-sm font-black text-[#1a365d] dark:text-brand-100 border-t border-slate-300 dark:border-brand-600 pt-1 mt-1">
+                            {reviewingLetter.letter.sign_name}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Other recipients' status */}
+                  {reviewingLetter.recipients?.length > 0 && (
+                    <div>
+                      <h3 className="text-xs font-bold text-brand-600 dark:text-brand-400 mb-2">المعتمدون والمستلمون</h3>
+                      <div className="space-y-1.5">
+                        {reviewingLetter.recipients.map((r: any) => (
+                          <div key={r.id} className="flex items-center gap-2 bg-slate-50 dark:bg-brand-800 rounded-lg px-3 py-1.5 text-xs">
+                            <span className={r.status === 'approved' ? 'text-emerald-500' : r.status === 'viewed' ? 'text-amber-500' : 'text-brand-400'}>
+                              {r.status === 'approved' ? <CheckCircle2 size={13} />
+                                : r.status === 'viewed' ? <Eye size={13} />
+                                : <Clock size={13} />}
+                            </span>
+                            <span className="flex-1 font-semibold text-brand-800 dark:text-brand-200">{r.full_name}</span>
+                            <span className="text-[10px] text-brand-400">{ROLE_LABELS_SHORT[r.role] || r.role}</span>
+                            {r.used_stamp && <span title="ختم رسمي"><Stamp size={11} className="text-[#c5a059]" /></span>}
+                            {r.approved_at && (
+                              <span className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                                {new Date(r.approved_at).toLocaleDateString('ar-SA')}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Approval section (only if I'm a recipient and not yet approved) */}
+                  {reviewingLetter.my_recipient && reviewingLetter.my_recipient.status !== 'approved' && (
+                    <div className="border-2 border-[#c5a059]/30 rounded-2xl p-4 bg-[#c5a059]/5">
+                      <h3 className="font-bold text-[#1a365d] dark:text-brand-100 text-sm mb-3 flex items-center gap-2">
+                        <CheckCircle2 size={16} /> اعتماد الخطاب
+                      </h3>
+
+                      {!signature && (
+                        <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 rounded-lg px-3 py-2 mb-3">
+                          ⚠ لم تسجّل توقيعك بعد. اذهب لـ <a href="/profile" className="font-bold underline">صفحة بياناتك</a> أولاً.
+                        </p>
+                      )}
+
+                      {signature && (
+                        <div className="bg-white dark:bg-brand-900 rounded-xl p-2 border border-slate-200 dark:border-brand-700 flex items-center justify-center mb-3">
+                          <img src={signature} alt="" className="max-h-12 object-contain" />
+                        </div>
+                      )}
+
+                      {canUseStamp && (
+                        <label className="flex items-center gap-2 cursor-pointer mb-3 text-sm font-semibold text-brand-800 dark:text-brand-200">
+                          <input type="checkbox" checked={reviewUseStamp}
+                            onChange={e => setReviewUseStamp(e.target.checked)}
+                            className="accent-[#1a365d] w-4 h-4" />
+                          <Stamp size={14} className="text-[#c5a059]" />
+                          أضف الختم الرسمي مع التوقيع
+                        </label>
+                      )}
+
+                      <textarea value={reviewNotes} onChange={e => setReviewNotes(e.target.value)}
+                        placeholder="ملاحظات (اختياري)"
+                        className="w-full border border-slate-200 dark:border-brand-700 rounded-xl px-3 py-2 text-sm bg-white dark:bg-brand-900 mb-3 resize-none"
+                        rows={2} />
+
+                      <div className="flex gap-2">
+                        <button onClick={approveLetter} disabled={approving || !signature}
+                          className="flex-1 bg-[#1a365d] hover:bg-[#c5a059] disabled:opacity-50 text-white py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2">
+                          {approving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                          اعتماد بتوقيعي
+                        </button>
+                        <button onClick={() => setReviewingLetter(null)}
+                          className="px-5 bg-slate-100 dark:bg-brand-800 text-brand-600 dark:text-brand-300 py-2.5 rounded-xl font-bold text-sm">
+                          إغلاق
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {reviewingLetter.my_recipient?.status === 'approved' && (
+                    <div className="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-xl px-4 py-3 text-sm font-bold flex items-center gap-2">
+                      <CheckCircle2 size={16} />
+                      اعتمدتَ هذا الخطاب في {new Date(reviewingLetter.my_recipient.approved_at).toLocaleString('ar-SA')}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -709,19 +944,23 @@ export default function LetterGenerator() {
 
           <div className="bg-white dark:bg-brand-900 rounded-2xl border border-slate-200 dark:border-brand-700 shadow-sm overflow-hidden">
             <div className="flex border-b border-slate-100 dark:border-brand-700">
-              {(['templates', 'saved'] as const).map(tab => (
-                <button key={tab} onClick={() => setActiveTab(tab)}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-3 text-xs font-bold transition ${
-                    activeTab === tab
+              {([
+                { v: 'templates' as const, l: <><BookOpen size={13} /> النماذج</> },
+                { v: 'saved'     as const, l: <><FileText size={13} /> المحفوظة ({savedLetters.length})</> },
+                { v: 'incoming'  as const, l: <><Inbox size={13} /> الواردة ({incoming.length})</> },
+              ]).map(t => (
+                <button key={t.v} onClick={() => setLetterBox(t.v)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-3 text-xs font-bold transition ${
+                    letterBox === t.v
                       ? 'bg-[#1a365d] text-white'
                       : 'text-brand-500 dark:text-brand-400 hover:bg-slate-50 dark:hover:bg-brand-800'}`}>
-                  {tab === 'templates' ? <><BookOpen size={13} /> النماذج</> : <><FileText size={13} /> المحفوظة ({savedLetters.length})</>}
+                  {t.l}
                 </button>
               ))}
             </div>
 
             <div className="p-4">
-              {activeTab === 'templates' && (
+              {letterBox === 'templates' && (
                 <>
                   {templates.length === 0 ? (
                     <div className="text-center py-3">
@@ -764,7 +1003,7 @@ export default function LetterGenerator() {
                 </>
               )}
 
-              {activeTab === 'saved' && (
+              {letterBox === 'saved' && (
                 <div className="space-y-1.5">
                   {savedLetters.length === 0 ? (
                     <p className="text-center text-xs text-brand-400 py-3">لا توجد خطابات محفوظة بعد</p>
@@ -774,7 +1013,14 @@ export default function LetterGenerator() {
                         <p className="text-xs font-semibold text-brand-700 dark:text-brand-300 truncate">
                           {lt.subject || lt.recipient || `خطاب #${lt.id}`}
                         </p>
-                        <p className="text-[10px] text-brand-400">{new Date(lt.created_at).toLocaleDateString('ar-SA')}</p>
+                        <div className="flex items-center gap-2 text-[10px] text-brand-400">
+                          <span>{new Date(lt.created_at).toLocaleDateString('ar-SA')}</span>
+                          {lt.recipients_count > 0 && (
+                            <span className="flex items-center gap-0.5">
+                              <UsersIcon size={9} /> {lt.approved_count}/{lt.recipients_count}
+                            </span>
+                          )}
+                        </div>
                       </button>
                       <button onClick={() => deleteLetter(lt.id)}
                         className="opacity-0 group-hover:opacity-100 transition text-red-400 hover:text-red-600 p-0.5 shrink-0 mr-1">
@@ -782,6 +1028,40 @@ export default function LetterGenerator() {
                       </button>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {letterBox === 'incoming' && (
+                <div className="space-y-1.5">
+                  {incoming.length === 0 ? (
+                    <p className="text-center text-xs text-brand-400 py-3">لا توجد خطابات واردة للاطلاع</p>
+                  ) : incoming.map(lt => {
+                    const isPending  = lt.my_status === 'pending'
+                    const isViewed   = lt.my_status === 'viewed'
+                    const isApproved = lt.my_status === 'approved'
+                    return (
+                      <button key={lt.id} onClick={() => openIncoming(lt)}
+                        className="w-full text-right flex items-center gap-2 rounded-lg px-2 py-2 transition hover:bg-[#1a365d]/5">
+                        <span className={`shrink-0 ${
+                          isApproved ? 'text-emerald-500'
+                          : isViewed  ? 'text-amber-500'
+                          : 'text-red-500 animate-pulse'
+                        }`}>
+                          {isApproved ? <CheckCircle2 size={14} />
+                            : isViewed ? <Eye size={14} />
+                            : <Clock size={14} />}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-brand-700 dark:text-brand-300 truncate">
+                            {lt.subject || `خطاب #${lt.id}`}
+                          </p>
+                          <p className="text-[10px] text-brand-400 truncate">
+                            من {lt.created_by_name} · {new Date(lt.created_at).toLocaleDateString('ar-SA')}
+                          </p>
+                        </div>
+                      </button>
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -799,6 +1079,70 @@ export default function LetterGenerator() {
               {field('المستلم',        <User size={13}/>,         data.recipient, v => setData({...data, recipient: v}), { placeholder: 'اللجنة التنفيذية' })}
               {field('الموضوع',        <AlignLeft size={13}/>,    data.subject,   v => setData({...data, subject: v}))}
             </div>
+          </div>
+
+          {/* Recipients (staff) — receive the letter for review + approval */}
+          <div className="bg-white dark:bg-brand-900 rounded-2xl border border-slate-200 dark:border-brand-700 shadow-sm">
+            <button onClick={() => setShowRecipPicker(o => !o)}
+              className="w-full px-4 py-3 border-b border-slate-100 dark:border-brand-700 bg-[#1a365d]/5 dark:bg-[#1a365d]/20 flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <UsersIcon size={15} className="text-[#1a365d] dark:text-[#c5a059]" />
+                <span className="font-bold text-sm text-[#1a365d] dark:text-brand-100">المستلمون للاطلاع</span>
+                {recipientIds.length > 0 && (
+                  <span className="bg-[#c5a059] text-white text-[10px] font-bold rounded-full px-2 py-0.5">
+                    {recipientIds.length}
+                  </span>
+                )}
+              </span>
+              <ChevronDown size={14} className={`text-brand-400 transition-transform ${showRecipPicker ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showRecipPicker && (
+              <div className="p-4 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <button onClick={selectAllRecipients} type="button"
+                    className="text-xs font-bold text-[#1a365d] dark:text-[#c5a059] hover:underline">
+                    اختيار الجميع
+                  </button>
+                  {recipientIds.length > 0 && (
+                    <button onClick={clearRecipients} type="button"
+                      className="text-xs text-red-500 hover:underline">
+                      إلغاء التحديد
+                    </button>
+                  )}
+                </div>
+
+                {staff.length === 0 ? (
+                  <p className="text-xs text-brand-400 text-center py-2">لا يوجد موظفون نشطون</p>
+                ) : (
+                  <div className="max-h-64 overflow-y-auto -mx-1 px-1 space-y-1">
+                    {staff.map(s => {
+                      const checked = recipientIds.includes(s.id)
+                      return (
+                        <label key={s.id}
+                          className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition ${
+                            checked
+                              ? 'bg-[#1a365d]/10 dark:bg-[#1a365d]/30'
+                              : 'hover:bg-slate-50 dark:hover:bg-brand-800'}`}>
+                          <input type="checkbox" checked={checked}
+                            onChange={() => toggleRecipient(s.id)}
+                            className="accent-[#1a365d] w-4 h-4 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-brand-800 dark:text-brand-200 truncate">{s.full_name}</p>
+                            <p className="text-[10px] text-brand-400">{ROLE_LABELS_SHORT[s.role] || s.role}</p>
+                          </div>
+                        </label>
+                      )
+                    })}
+                  </div>
+                )}
+
+                <p className="text-[10px] text-brand-400 leading-relaxed">
+                  المستلمون سيُشعَرون ويظهر لديهم الخطاب في تبويب "الواردة" للاطلاع
+                  والاعتماد بتوقيعهم الخاص.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Signature + stamp */}
@@ -827,8 +1171,8 @@ export default function LetterGenerator() {
               )}
             </div>
 
-            {canUseStamp && (
-              <div className="px-4 pb-4">
+            <div className="px-4 pb-4">
+              {canUseStamp ? (
                 <button onClick={() => setShowStamp(s => !s)}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border transition text-sm font-bold ${
                     showStamp
@@ -842,8 +1186,13 @@ export default function LetterGenerator() {
                     <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${showStamp ? 'right-0.5' : 'left-0.5'}`} />
                   </div>
                 </button>
-              </div>
-            )}
+              ) : (
+                <div className="text-[10px] text-brand-400 dark:text-brand-500 bg-slate-50 dark:bg-brand-800 border border-slate-200 dark:border-brand-700 rounded-xl px-3 py-2 flex items-center gap-2">
+                  <Stamp size={13} />
+                  استخدام الختم يتطلب صلاحية "letter.stamp" — يمنحها الإدارة.
+                </div>
+              )}
+            </div>
 
             <div className="px-4 pb-4 border-t border-slate-100 dark:border-brand-700 pt-3">
               {!showSave ? (

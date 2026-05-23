@@ -39,6 +39,7 @@ export const PERMISSION_DEFS = [
   { key: 'news.publish',    label: 'نشر الأخبار',         desc: 'إضافة وتعديل وحذف الأخبار' },
   { key: 'report.view',     label: 'عرض التقارير',        desc: 'الوصول للتقارير المالية' },
   { key: 'member.view',     label: 'عرض قائمة الأعضاء',  desc: 'رؤية بيانات الأعضاء كاملة' },
+  { key: 'letter.stamp',    label: 'استخدام ختم الصندوق', desc: 'وضع الختم الرسمي على الخطابات' },
 ] as const
 
 export type PermissionKey = typeof PERMISSION_DEFS[number]['key']

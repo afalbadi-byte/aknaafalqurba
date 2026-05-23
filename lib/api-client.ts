@@ -45,6 +45,7 @@ export const api = {
   },
   members: {
     list:         (status?: string) => get(`/api/members${status ? `?status=${status}` : ''}`),
+    staff:        ()                => get('/api/members/staff'),
     directory:    ()                => get('/api/members/directory'),
     get:          (id: number)      => get(`/api/members/${id}`),
     delete:       (id: number)      => del(`/api/members/${id}`),
@@ -89,10 +90,12 @@ export const api = {
     remove: (id: number)   => del(`/api/letter-templates/${id}`),
   },
   letters: {
-    list:   ()             => get('/api/letters'),
-    create: (data: object) => post('/api/letters', data),
-    update: (id: number, data: object) => patch(`/api/letters/${id}`, data),
-    remove: (id: number)   => del(`/api/letters/${id}`),
+    list:    (box: 'outgoing' | 'incoming' | 'all' = 'outgoing') => get(`/api/letters?box=${box}`),
+    get:     (id: number)                => get(`/api/letters/${id}`),
+    create:  (data: object)              => post('/api/letters', data),
+    update:  (id: number, data: object)  => patch(`/api/letters/${id}`, data),
+    remove:  (id: number)                => del(`/api/letters/${id}`),
+    approve: (id: number, data: object)  => post(`/api/letters/${id}/approve`, data),
   },
   expenses: {
     list:   ()                      => get('/api/expenses'),
