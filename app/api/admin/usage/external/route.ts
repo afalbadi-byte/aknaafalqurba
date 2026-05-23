@@ -393,46 +393,70 @@ async function readHostinger(): Promise<ServiceResult[]> {
     const data = await r.json() as any
     const subs: any[] = Array.isArray(data) ? data : (data.data || data.subscriptions || [])
 
-    // The subscription rows themselves don't expose the related domain,
-    // so we enrich each one by fetching its resources (the domains/services
-    // attached to the subscription). Hostinger billing API exposes this at:
-    //   GET /api/billing/v1/subscriptions/{id}/resources
-    // We do this concurrently.
-    const enriched = await Promise.all(subs.map(async (s: any) => {
-      try {
-        const rr = await fetch(
-          `https://developers.hostinger.com/api/billing/v1/subscriptions/${s.id}/resources`,
-          { headers: { Authorization: `Bearer ${tok}`, Accept: 'application/json' } },
-        )
-        if (rr.ok) {
-          const rd = await rr.json() as any
-          const items: any[] = Array.isArray(rd) ? rd : (rd.data || rd.resources || [])
-          const domain = items[0]?.metadata?.domain || items[0]?.domain || items[0]?.name || null
-          return { ...s, _domain: domain, _resources: items }
+    // Fetch the domains portfolio to map domain -> subscription_id, then
+    // also peek at the orders endpoint as a backup mapping source.
+    const subToDomain = new Map<string, string>()  // subscription_id -> domain
+
+    try {
+      const pr = await fetch('https://developers.hostinger.com/api/domains/v1/portfolio', {
+        headers: { Authorization: `Bearer ${tok}`, Accept: 'application/json' },
+      })
+      if (pr.ok) {
+        const pd = await pr.json() as any
+        const list: any[] = Array.isArray(pd) ? pd : (pd.data || pd.domains || [])
+        for (const d of list) {
+          const sid = d.subscription_id || d.billing?.subscription_id
+          const name = d.domain || d.name
+          if (sid && name) subToDomain.set(sid, name)
         }
-      } catch { /* swallow per-sub failure */ }
-      return s
-    }))
+      }
+    } catch { /* keep going */ }
+
+    // Walk orders/items as a backup — orders carry items with domain info
+    let ordersDebug: any = null
+    if (subToDomain.size === 0) {
+      try {
+        const or = await fetch('https://developers.hostinger.com/api/billing/v1/orders', {
+          headers: { Authorization: `Bearer ${tok}`, Accept: 'application/json' },
+        })
+        if (or.ok) {
+          const od = await or.json() as any
+          const orders: any[] = Array.isArray(od) ? od : (od.data || od.orders || [])
+          ordersDebug = orders.slice(0, 2).map(o => ({ keys: Object.keys(o), sample: o }))
+          for (const ord of orders) {
+            const items: any[] = ord.items || ord.line_items || []
+            for (const it of items) {
+              const sid = it.subscription_id || ord.subscription_id
+              const dom = it.domain || it.metadata?.domain || it.name
+              if (sid && typeof dom === 'string' && dom.includes('.')) {
+                subToDomain.set(sid, dom)
+              }
+            }
+          }
+        }
+      } catch { /* keep going */ }
+    }
+
+    // Attach _domain to each sub
+    const enriched = subs.map((s: any) => ({ ...s, _domain: subToDomain.get(s.id) || null }))
 
     const ours = enriched.filter((s: any) => {
-      const blob = JSON.stringify(s).toLowerCase()
-      return PROJECT_DOMAIN_TAGS.some(t => blob.includes(t))
+      const dom = (s._domain || '').toLowerCase()
+      return PROJECT_DOMAIN_TAGS.some(t => dom.includes(t))
     })
 
     if (ours.length === 0) {
-      // Debug: show what the resources endpoint gave us for every sub
       const debug = enriched.map((s: any) => ({
         id: s.id, name: s.name, renewal_price: s.renewal_price,
-        next_billing_at: s.next_billing_at, _domain: s._domain || null,
-        _resource_keys: s._resources?.[0] ? Object.keys(s._resources[0]) : null,
+        next_billing_at: s.next_billing_at, _domain: s._domain,
       }))
       return [{
         service: 'Hostinger',
         status: 'no_data',
         monthly_sar: null,
-        usage: { total_subs: subs.length, debug } as any,
+        usage: { total_subs: subs.length, portfolio_size: subToDomain.size, debug, ordersDebug } as any,
         note: subs.length
-          ? `${subs.length} اشتراك بالحساب — لا شي يطابق "aknafalqurba" بعد التحسين`
+          ? `${subs.length} اشتراك بالحساب — domains/portfolio أعطى ${subToDomain.size} ربط (لم يطابق)`
           : 'لم تُرجع API أي اشتراكات',
       }]
     }
