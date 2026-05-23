@@ -1,6 +1,5 @@
 'use client'
-import { useEffect, useRef, useState, useCallback } from 'react'
-import dynamic from 'next/dynamic'
+import { useEffect, useRef, useState } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { Underline } from '@tiptap/extension-underline'
@@ -12,44 +11,50 @@ import { api } from '@/lib/api-client'
 import {
   FilePen, Printer, Loader2, Trash2, BookOpen, Sparkles, Stamp,
   Hash, CalendarDays, AlignLeft, User, PenLine, Tag, ChevronDown,
-  Save, FolderOpen, Bold, Italic, UnderlineIcon, List, ListOrdered,
+  Save, Bold, Italic, UnderlineIcon, List, ListOrdered,
   AlignRight, AlignCenter, AlignJustify, Table2, ImageIcon, Heading2,
   X, FileText,
 } from 'lucide-react'
 
 /* ─────────────────────────────────────────────────────────────
-   PRINT STYLES
-   Each printed A4 page gets one complete letterhead tile via
-   @page margins + html background tiling.
-   .a4 background is suppressed in print so html's tile shows.
+   PAGE DIMENSIONS  (all in mm; matches CSS @page)
 ───────────────────────────────────────────────────────────── */
-const PRINT_CSS = `
+const PAGE = {
+  W: 210, H: 297,
+  TOP: 42,        // top safe zone (header letterhead clearance)
+  BOTTOM: 32,     // bottom safe zone (footer letterhead clearance)
+  SIDE: 18,       // side margins
+  PAGE_NUM: 6,    // page-number row height
+  SIG: 34,        // signature+stamp row height
+  INTRO: 30,      // recipient + subject heading on page 1
+}
+const PX_PER_MM = 3.7795
+
+/* ─────────────────────────────────────────────────────────────
+   CSS — shared between preview and print
+───────────────────────────────────────────────────────────── */
+const PAGE_CSS = `
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  body { margin: 0; padding: 0; font-family: 'Cairo', sans-serif; direction: rtl; }
+  body { margin: 0; padding: 0; font-family: 'Cairo', sans-serif; direction: rtl; background: #e5e7eb; }
 
-  @page { size: A4 portrait; margin: 42mm 18mm 32mm 18mm; }
-
+  @page { size: A4 portrait; margin: 0; }
   @media print {
-    html {
-      background: url(BG_URL) top left / 210mm 297mm repeat;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-    .a4 { background: none !important; padding: 0 !important; width: 100%; }
+    body { background: none; }
+    .a4-page { margin: 0 !important; box-shadow: none !important; page-break-after: always; }
+    .a4-page:last-child { page-break-after: auto; }
   }
 
-  .a4 {
+  .a4-page {
     width: 210mm;
-    min-height: 297mm;
+    height: 297mm;
     position: relative;
-    background: url(BG_URL) top left / 210mm 297mm repeat;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+    background: url(BG_URL) top left / 210mm 297mm no-repeat #fff;
+    margin: 0 auto 18px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+    overflow: hidden;
   }
 
-  /* ── Metadata values — overlaid LEFT of the labels ──         */
-  /* Labels are on the LEFT side of the letterhead (الرقم/التاريخ/الموضوع) */
-  /* Logo is on the RIGHT side. Values go to the left of label colons.   */
+  /* Metadata overlays — LEFT of label colons; only page 1 */
   .mv {
     position: absolute; direction: rtl; text-align: right;
     color: #1a365d; font-weight: 700; font-size: 11px;
@@ -59,19 +64,26 @@ const PRINT_CSS = `
   .mv-date { top: 22.5mm; }
   .mv-subj { top: 27.5mm; }
 
-  .lh-body { padding: 0; }
+  /* Content area — inside top/bottom safe zones */
+  .page-content {
+    position: absolute;
+    top: ${PAGE.TOP}mm; left: ${PAGE.SIDE}mm; right: ${PAGE.SIDE}mm;
+    bottom: ${PAGE.BOTTOM}mm;
+  }
 
+  /* Recipient + subject heading — only page 1 */
   .recipient p { font-size: 13.5px; color: #1a365d; font-weight: 600; line-height: 1.8; margin: 0 0 3px; }
   .recipient .hon { color: #475569; font-weight: 500; }
-  .recipient { margin-bottom: 20px; }
+  .recipient { margin-bottom: 14px; }
 
   .subject-heading {
     font-size: 14px; font-weight: 900; color: #1a365d;
     text-align: center;
     border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;
-    padding: 7px 0; margin: 16px 0 18px;
+    padding: 6px 0; margin: 0 0 14px;
   }
 
+  /* Body content */
   .body-text {
     text-align: justify; line-height: 2.3;
     color: #1e293b; font-size: 13.5px; word-wrap: break-word;
@@ -80,89 +92,217 @@ const PRINT_CSS = `
   .body-text li { margin-bottom: 5px; }
   .body-text ol, .body-text ul { padding-right: 1.4em; }
   .body-text h2 { font-size: 15px; font-weight: 900; color: #1a365d; margin: 12px 0 8px; }
+  .body-text h3 { font-size: 14px; font-weight: 700; color: #1a365d; margin: 10px 0 6px; }
   .body-text table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 12px; }
   .body-text th, .body-text td { border: 1px solid #cbd5e1; padding: 5px 8px; text-align: right; }
   .body-text th { background: #f1f5f9; font-weight: 700; color: #1a365d; }
   .body-text img { max-width: 100%; height: auto; }
 
+  /* Signature row — fixed at bottom of LAST page only */
   .sign-row {
+    position: absolute;
+    bottom: ${PAGE.BOTTOM + PAGE.PAGE_NUM + 4}mm;
+    left: ${PAGE.SIDE}mm; right: ${PAGE.SIDE}mm;
     display: flex; justify-content: space-between; align-items: flex-end;
-    direction: ltr; margin-top: 44px; min-height: 90px;
+    direction: ltr; min-height: ${PAGE.SIG}mm;
   }
-  .sign-left  { display: flex; flex-direction: column; align-items: flex-start; }
-  .stamp-img  { width: 160px; object-fit: contain; opacity: 0.9; }
-  .sig-img    { width: 130px; object-fit: contain; margin-bottom: 4px; }
-  .sign-block { text-align: center; min-width: 165px; direction: rtl; }
-  .sign-title { font-weight: 700; color: #1a365d; font-size: 12px; margin: 0 0 5px; }
+  .stamp-img  { width: 170px; object-fit: contain; opacity: 0.9; }
+  .sign-block { text-align: center; min-width: 175px; direction: rtl; }
+  .sig-img    { display: block; max-height: 50px; max-width: 160px; object-fit: contain; margin: 0 auto 2px; }
+  .sign-title { font-weight: 700; color: #1a365d; font-size: 12px; margin: 0 0 4px; }
   .sign-name  {
     font-weight: 900; font-size: 15px; color: #1a365d;
-    border-top: 1.5px solid #cbd5e1; padding-top: 7px; margin: 0;
+    border-top: 1.5px solid #cbd5e1; padding-top: 6px; margin: 0;
+  }
+
+  /* Page number — bottom center of each page */
+  .page-num {
+    position: absolute;
+    bottom: ${PAGE.BOTTOM + 1}mm;
+    left: 0; right: 0;
+    text-align: center;
+    font-size: 9.5px; font-weight: 700;
+    color: #1a365d; letter-spacing: 0.5px;
+  }
+
+  /* Empty content placeholder */
+  .body-text:empty::before {
+    content: " "; display: block; height: 1px;
   }
 `
 
-/* ─── Build print HTML ──────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────
+   PAGINATOR — splits bodyHTML into chunks that fit A4 pages
+───────────────────────────────────────────────────────────── */
+function paginate(bodyHTML: string, hasIntro: boolean): string[] {
+  if (typeof window === 'undefined') return [bodyHTML || ' ']
+  const clean = (bodyHTML || '').trim()
+  if (!clean) return [' ']
+
+  const SAFE_H_MM = PAGE.H - PAGE.TOP - PAGE.BOTTOM           // 223mm
+  const FULL_BODY_MM = SAFE_H_MM - PAGE.PAGE_NUM              // 217mm
+  const introMM = hasIntro ? PAGE.INTRO : 0
+
+  // Hidden measure container (same width + styles as render)
+  const measure = document.createElement('div')
+  measure.style.cssText = `
+    position: fixed; top: -10000px; left: 0;
+    width: ${PAGE.W - 2 * PAGE.SIDE}mm; visibility: hidden;
+    font-family: 'Cairo', sans-serif;
+    font-size: 13.5px; line-height: 2.3;
+    text-align: justify; direction: rtl;
+    word-wrap: break-word; word-break: break-word;
+  `
+  measure.className = 'body-text'
+  measure.innerHTML = clean
+  document.body.appendChild(measure)
+
+  try {
+    const totalMM = measure.offsetHeight / PX_PER_MM
+
+    // Single page: intro + body + signature all fit
+    if (introMM + totalMM + PAGE.SIG <= FULL_BODY_MM) {
+      return [clean]
+    }
+
+    // Multi-page walk
+    const children = Array.from(measure.children) as HTMLElement[]
+    if (children.length === 0) return [clean]
+
+    const pages: HTMLElement[][] = [[]]
+    let curMM = introMM // page 1 reserves intro space
+
+    for (const child of children) {
+      const cMM = child.offsetHeight / PX_PER_MM
+
+      if (curMM + cMM > FULL_BODY_MM && pages[pages.length - 1].length > 0) {
+        pages.push([])
+        curMM = 0
+      }
+      pages[pages.length - 1].push(child)
+      curMM += cMM
+    }
+
+    // Make sure the LAST page has room for the signature row.
+    // If not, push an empty page so signature gets its own page.
+    let lastMM = 0
+    for (const el of pages[pages.length - 1]) lastMM += el.offsetHeight / PX_PER_MM
+    if (pages.length === 1) lastMM += introMM
+
+    if (lastMM + PAGE.SIG > FULL_BODY_MM) {
+      pages.push([])
+    }
+
+    return pages.map(p => p.map(el => el.outerHTML).join('') || ' ')
+  } finally {
+    document.body.removeChild(measure)
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Build a single page's inner HTML (used by print + preview share)
+───────────────────────────────────────────────────────────── */
+function pageHTML(opts: {
+  bodyChunk: string
+  pageIndex: number
+  totalPages: number
+  data: LetterForm
+  showStamp: boolean
+  signature?: string | null
+}) {
+  const { bodyChunk, pageIndex, totalPages, data, showStamp, signature } = opts
+  const isFirst = pageIndex === 0
+  const isLast  = pageIndex === totalPages - 1
+
+  const overlays = isFirst ? `
+    ${data.reference ? `<span class="mv mv-ref">${escapeHTML(data.reference)}</span>`   : ''}
+    ${data.date      ? `<span class="mv mv-date">${escapeHTML(data.date)}</span>`       : ''}
+    ${data.subject   ? `<span class="mv mv-subj">${escapeHTML(data.subject)}</span>`    : ''}
+  ` : ''
+
+  const intro = isFirst ? `
+    <div class="recipient">
+      <p>السادة / ${escapeHTML(data.recipient) || ''}</p>
+      <p class="hon">حفظهم الله،،</p>
+    </div>
+    ${data.subject ? `<div class="subject-heading">الموضوع: ${escapeHTML(data.subject)}</div>` : ''}
+  ` : ''
+
+  const sig = isLast ? `
+    <div class="sign-row">
+      <div>${showStamp ? `<img class="stamp-img" src="STAMP_URL" alt="" onerror="this.style.display='none'">` : ''}</div>
+      <div class="sign-block">
+        ${data.signTitle ? `<p class="sign-title">${escapeHTML(data.signTitle)}</p>` : ''}
+        ${signature ? `<img class="sig-img" src="${signature}" alt="">` : ''}
+        ${data.signName ? `<p class="sign-name">${escapeHTML(data.signName)}</p>` : ''}
+      </div>
+    </div>
+  ` : ''
+
+  const pageNum = totalPages > 1
+    ? `<div class="page-num">صفحة ${pageIndex + 1} من ${totalPages}</div>`
+    : `<div class="page-num">&nbsp;</div>`
+
+  return `
+    <div class="a4-page">
+      ${overlays}
+      <div class="page-content">
+        ${intro}
+        <div class="body-text">${bodyChunk}</div>
+      </div>
+      ${sig}
+      ${pageNum}
+    </div>
+  `
+}
+
+function escapeHTML(s: string): string {
+  return (s || '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Build the full print document
+───────────────────────────────────────────────────────────── */
 function buildPrintHTML(
   data: LetterForm,
+  pages: string[],
   origin: string,
   showStamp: boolean,
-  signature?: string | null,
+  signature: string | null,
 ) {
-  const bg = `${origin}/brand/letterhead.png`
-  const css = PRINT_CSS.replace(/BG_URL/g, bg)
+  const bg     = `${origin}/brand/letterhead.png`
+  const stamp  = `${origin}/brand/stamp.png`
+  const hasIntro = true
+  const css    = PAGE_CSS.replace(/BG_URL/g, bg)
+  const pagesHtml = pages.map((chunk, i) =>
+    pageHTML({
+      bodyChunk: chunk, pageIndex: i, totalPages: pages.length,
+      data, showStamp, signature,
+    }).replace(/STAMP_URL/g, stamp)
+  ).join('')
 
   return `<!DOCTYPE html>
 <html dir="rtl" lang="ar"><head>
 <meta charset="utf-8">
-<title>خطاب — ${data.recipient || 'الصندوق'}</title>
+<title>خطاب — ${escapeHTML(data.recipient) || 'الصندوق'}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
 <style>${css}</style>
 </head><body>
-<div class="a4">
-  ${data.reference ? `<span class="mv mv-ref">${data.reference}</span>` : ''}
-  ${data.date      ? `<span class="mv mv-date">${data.date}</span>`      : ''}
-  ${data.subject   ? `<span class="mv mv-subj">${data.subject}</span>`   : ''}
-
-  <div class="lh-body">
-    <div class="recipient">
-      <p>السادة / ${data.recipient || ''}</p>
-      <p class="hon">حفظهم الله،،</p>
-    </div>
-
-    ${data.subject
-      ? `<div class="subject-heading">الموضوع: ${data.subject}</div>`
-      : ''}
-
-    <div class="body-text">${data.body || ''}</div>
-
-    <div class="sign-row">
-      <div class="sign-left">
-        ${showStamp
-          ? `<img class="stamp-img" src="${origin}/brand/stamp.png" alt="الختم" onerror="this.style.display='none'">`
-          : ''}
-      </div>
-      <div class="sign-block">
-        ${data.signTitle ? `<p class="sign-title">${data.signTitle}</p>` : ''}
-        ${signature ? `<img class="sig-img" src="${signature}" alt="التوقيع">` : ''}
-        ${data.signName ? `<p class="sign-name">${data.signName}</p>` : ''}
-      </div>
-    </div>
-  </div>
-</div>
+${pagesHtml}
 </body></html>`
 }
 
-/* ─── Open print window ─────────────────────────────────────── */
 function printLetter(html: string) {
   const w = window.open('', '_blank', 'width=860,height=1180')
   if (!w) { alert('يرجى السماح بفتح النوافذ المنبثقة'); return }
-  w.document.write(html)
-  w.document.close()
+  w.document.write(html); w.document.close()
   w.onload = () => {
     const go = () => { w.focus(); w.print() }
     const fonts = (w.document as any).fonts
-    fonts?.ready ? fonts.ready.then(() => setTimeout(go, 150)) : setTimeout(go, 600)
+    fonts?.ready ? fonts.ready.then(() => setTimeout(go, 200)) : setTimeout(go, 700)
   }
 }
 
@@ -178,20 +318,17 @@ const CATEGORIES = [
 ]
 const STAMP_ROLES = ['admin', 'president', 'secretary']
 
-/* ─── TipTap toolbar button ─────────────────────────────────── */
 function ToolBtn({ onClick, active, title, children }: {
   onClick: () => void; active?: boolean; title: string; children: React.ReactNode
 }) {
   return (
-    <button
-      type="button"
+    <button type="button"
       onMouseDown={e => { e.preventDefault(); onClick() }}
       title={title}
       className={`w-7 h-7 flex items-center justify-center rounded text-xs transition
         ${active
           ? 'bg-[#1a365d] text-white'
-          : 'hover:bg-slate-100 dark:hover:bg-brand-700 text-brand-600 dark:text-brand-300'}`}
-    >
+          : 'hover:bg-slate-100 dark:hover:bg-brand-700 text-brand-600 dark:text-brand-300'}`}>
       {children}
     </button>
   )
@@ -199,16 +336,19 @@ function ToolBtn({ onClick, active, title, children }: {
 
 /* ─── Component ─────────────────────────────────────────────── */
 export default function LetterGenerator() {
-  const [user,      setUser]      = useState<any>(null)
-  const [templates, setTemplates] = useState<any[]>([])
+  const [user,         setUser]         = useState<any>(null)
+  const [templates,    setTemplates]    = useState<any[]>([])
   const [savedLetters, setSavedLetters] = useState<any[]>([])
-  const [loading,   setLoading]   = useState(true)
-  const [showStamp, setShowStamp] = useState(false)
+  const [loading,      setLoading]      = useState(true)
+  const [showStamp,    setShowStamp]    = useState(false)
 
   const [data, setData] = useState<LetterForm>({
     reference: '', date: '', recipient: '', subject: '',
     body: '', signName: '', signTitle: '',
   })
+
+  /* paginated body chunks */
+  const [pages, setPages] = useState<string[]>([' '])
 
   const [showSave,  setShowSave]  = useState(false)
   const [saveMeta,  setSaveMeta]  = useState({ category: 'إدارية عامة', title: '' })
@@ -217,10 +357,8 @@ export default function LetterGenerator() {
   const [catOpen,   setCatOpen]   = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'templates' | 'saved'>('templates')
 
-  /* letter save state */
-  const [showLetterSave, setShowLetterSave] = useState(false)
-  const [letterSaveTitle, setLetterSaveTitle] = useState('')
-  const [savingLetter, setSavingLetter] = useState(false)
+  const [showLetterSave, setShowLetterSave]   = useState(false)
+  const [savingLetter,   setSavingLetter]     = useState(false)
   const [currentLetterId, setCurrentLetterId] = useState<number | null>(null)
 
   const canUseStamp = user && STAMP_ROLES.includes(user.role)
@@ -240,18 +378,26 @@ export default function LetterGenerator() {
       Placeholder.configure({ placeholder: 'اكتب نص الخطاب هنا…' }),
     ],
     content: '',
+    immediatelyRender: false,
     editorProps: {
       attributes: {
         class: 'min-h-[180px] outline-none text-[13.5px] leading-[2] text-brand-900 dark:text-brand-50',
         dir: 'rtl',
       },
     },
-    onUpdate: ({ editor }) => {
-      setData(d => ({ ...d, body: editor.getHTML() }))
-    },
+    onUpdate: ({ editor }) => setData(d => ({ ...d, body: editor.getHTML() })),
   })
 
-  /* ── bootstrap ── */
+  /* ── Re-paginate when content changes (debounced) ── */
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const newPages = paginate(data.body, true)
+      setPages(newPages)
+    }, 250)
+    return () => clearTimeout(t)
+  }, [data.body, data.recipient, data.subject])
+
+  /* ── Bootstrap ── */
   useEffect(() => {
     Promise.all([
       api.auth.me().catch(() => null),
@@ -276,8 +422,7 @@ export default function LetterGenerator() {
   }, [])
 
   const grouped = templates.reduce<Record<string, any[]>>((acc, t) => {
-    ;(acc[t.category] ||= []).push(t)
-    return acc
+    ;(acc[t.category] ||= []).push(t); return acc
   }, {})
 
   function loadTemplate(tpl: any) {
@@ -288,12 +433,9 @@ export default function LetterGenerator() {
 
   function loadSavedLetter(lt: any) {
     setData({
-      reference: lt.reference || '',
-      date:      lt.date || '',
-      recipient: lt.recipient || '',
-      subject:   lt.subject || '',
-      body:      lt.body || '',
-      signName:  lt.sign_name || '',
+      reference: lt.reference || '', date: lt.date || '',
+      recipient: lt.recipient || '', subject: lt.subject || '',
+      body: lt.body || '', signName: lt.sign_name || '',
       signTitle: lt.sign_title || '',
     })
     editor?.commands.setContent(lt.body || '')
@@ -327,16 +469,11 @@ export default function LetterGenerator() {
         body: data.body, sign_name: data.signName, sign_title: data.signTitle,
         show_stamp: canUseStamp ? showStamp : false,
       }
-      if (currentLetterId) {
-        await api.letters.update(currentLetterId, payload)
-      } else {
-        const r = await api.letters.create(payload)
-        setCurrentLetterId(r.letter.id)
-      }
+      if (currentLetterId) await api.letters.update(currentLetterId, payload)
+      else { const r = await api.letters.create(payload); setCurrentLetterId(r.letter.id) }
       const lts = await api.letters.list()
       setSavedLetters(lts.letters || [])
       setShowLetterSave(false)
-      setLetterSaveTitle('')
     } finally { setSavingLetter(false) }
   }
 
@@ -357,28 +494,22 @@ export default function LetterGenerator() {
   }
 
   function handlePrint() {
-    const html = buildPrintHTML(data, window.location.origin, canUseStamp ? showStamp : false, signature)
+    const html = buildPrintHTML(data, pages, window.location.origin, canUseStamp ? showStamp : false, signature)
     printLetter(html)
   }
 
-  /* Insert image into editor */
   function insertImage() {
     const input = document.createElement('input')
     input.type = 'file'; input.accept = 'image/*'
     input.onchange = () => {
-      const file = input.files?.[0]
-      if (!file) return
+      const file = input.files?.[0]; if (!file) return
       const reader = new FileReader()
-      reader.onload = e => {
-        const src = e.target?.result as string
-        editor?.chain().focus().setImage({ src }).run()
-      }
+      reader.onload = e => { const src = e.target?.result as string; editor?.chain().focus().setImage({ src }).run() }
       reader.readAsDataURL(file)
     }
     input.click()
   }
 
-  /* ── Field helper ── */
   const field = (
     label: string, icon: React.ReactNode, value: string,
     onChange: (v: string) => void, opts?: { placeholder?: string; type?: string },
@@ -405,6 +536,9 @@ export default function LetterGenerator() {
     </div>
   )
 
+  // Inject the shared page CSS into the document head (for preview only)
+  const previewCSS = PAGE_CSS.replace(/BG_URL/g, '/brand/letterhead.png')
+
   return (
     <>
       <style>{`
@@ -429,24 +563,12 @@ export default function LetterGenerator() {
         .tiptap-editor .ProseMirror img {
           max-width: 100%; height: auto; border-radius: 6px; margin: 4px 0;
         }
-        .tiptap-editor .ProseMirror ul, .tiptap-editor .ProseMirror ol {
-          padding-right: 1.4rem;
-        }
-        .tiptap-editor .ProseMirror h2 {
-          font-size: 16px; font-weight: 900; color: #1a365d; margin: 12px 0 6px;
-        }
-        .tiptap-editor .ProseMirror h3 {
-          font-size: 14px; font-weight: 700; color: #1a365d; margin: 10px 0 5px;
-        }
-        /* Letter preview styles */
-        .lp p { margin-bottom: 0.65rem; }
-        .lp li { margin-bottom: 0.35rem; }
-        .lp ol, .lp ul { padding-right: 1.4rem; }
-        .lp table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 12px; }
-        .lp th, .lp td { border: 1px solid #cbd5e1; padding: 4px 7px; text-align: right; }
-        .lp th { background: #f8fafc; font-weight: 700; color: #1a365d; }
-        .lp img { max-width: 100%; height: auto; }
-        .lp h2 { font-size: 14px; font-weight: 900; color: #1a365d; margin: 10px 0 5px; }
+        .tiptap-editor .ProseMirror ul, .tiptap-editor .ProseMirror ol { padding-right: 1.4rem; }
+        .tiptap-editor .ProseMirror h2 { font-size: 16px; font-weight: 900; color: #1a365d; margin: 12px 0 6px; }
+        .tiptap-editor .ProseMirror h3 { font-size: 14px; font-weight: 700; color: #1a365d; margin: 10px 0 5px; }
+
+        /* A4 preview pages (injected from PAGE_CSS) */
+        ${previewCSS}
       `}</style>
 
       {/* Page title */}
@@ -456,16 +578,16 @@ export default function LetterGenerator() {
         </div>
         <div>
           <h1 className="text-xl font-black text-brand-950 dark:text-brand-50">منشئ الخطابات الرسمية</h1>
-          <p className="text-xs text-brand-500 dark:text-brand-400">صندوق أكناف القربى — عائلة البادي</p>
+          <p className="text-xs text-brand-500 dark:text-brand-400">
+            صندوق أكناف القربى — عائلة البادي{pages.length > 1 && ` • ${pages.length} صفحات`}
+          </p>
         </div>
         <div className="mr-auto flex items-center gap-2 flex-wrap">
-          {/* Save letter */}
           <button onClick={() => setShowLetterSave(true)}
             className="flex items-center gap-1.5 bg-[#c5a059] hover:bg-[#b8944f] text-white
                        px-4 py-2.5 rounded-2xl font-bold text-sm transition shadow">
             <Save size={15} /> حفظ الخطاب
           </button>
-          {/* Print */}
           <button onClick={handlePrint}
             className="flex items-center gap-2 bg-[#1a365d] hover:bg-[#c5a059] text-white
                        px-5 py-2.5 rounded-2xl font-bold text-sm transition shadow-lg hover:-translate-y-0.5 transform">
@@ -507,7 +629,6 @@ export default function LetterGenerator() {
         {/* ── Sidebar ─────────────────────────────────────────── */}
         <div className="w-full xl:w-[340px] shrink-0 space-y-4">
 
-          {/* Templates / Saved tabs */}
           <div className="bg-white dark:bg-brand-900 rounded-2xl border border-slate-200 dark:border-brand-700 shadow-sm overflow-hidden">
             <div className="flex border-b border-slate-100 dark:border-brand-700">
               {(['templates', 'saved'] as const).map(tab => (
@@ -616,7 +737,7 @@ export default function LetterGenerator() {
               {signature && (
                 <div className="border border-slate-200 dark:border-brand-700 rounded-xl p-2 bg-slate-50 dark:bg-brand-800">
                   <p className="text-[10px] text-brand-400 mb-1">صورة التوقيع</p>
-                  <img src={signature} alt="التوقيع" className="max-h-12 object-contain" />
+                  <img src={signature} alt="" className="max-h-12 object-contain" />
                 </div>
               )}
 
@@ -628,7 +749,6 @@ export default function LetterGenerator() {
               )}
             </div>
 
-            {/* Stamp toggle */}
             {canUseStamp && (
               <div className="px-4 pb-4">
                 <button onClick={() => setShowStamp(s => !s)}
@@ -647,7 +767,6 @@ export default function LetterGenerator() {
               </div>
             )}
 
-            {/* Save as template */}
             <div className="px-4 pb-4 border-t border-slate-100 dark:border-brand-700 pt-3">
               {!showSave ? (
                 <button onClick={() => setShowSave(true)}
@@ -690,139 +809,43 @@ export default function LetterGenerator() {
               <span className="font-bold text-sm text-[#1a365d] dark:text-brand-100">نص الخطاب</span>
             </div>
 
-            {/* Toolbar */}
             <div className="px-3 py-2 border-b border-slate-100 dark:border-brand-700 bg-slate-50 dark:bg-brand-950 flex flex-wrap gap-1 items-center" dir="ltr">
-              <ToolBtn onClick={() => editor?.chain().focus().toggleBold().run()} active={editor?.isActive('bold')} title="عريض">
-                <Bold size={13} />
-              </ToolBtn>
-              <ToolBtn onClick={() => editor?.chain().focus().toggleItalic().run()} active={editor?.isActive('italic')} title="مائل">
-                <Italic size={13} />
-              </ToolBtn>
-              <ToolBtn onClick={() => editor?.chain().focus().toggleUnderline().run()} active={editor?.isActive('underline')} title="تحته خط">
-                <UnderlineIcon size={13} />
-              </ToolBtn>
+              <ToolBtn onClick={() => editor?.chain().focus().toggleBold().run()} active={editor?.isActive('bold')} title="عريض"><Bold size={13} /></ToolBtn>
+              <ToolBtn onClick={() => editor?.chain().focus().toggleItalic().run()} active={editor?.isActive('italic')} title="مائل"><Italic size={13} /></ToolBtn>
+              <ToolBtn onClick={() => editor?.chain().focus().toggleUnderline().run()} active={editor?.isActive('underline')} title="تحته خط"><UnderlineIcon size={13} /></ToolBtn>
               <div className="w-px h-5 bg-slate-200 dark:bg-brand-600 mx-0.5" />
-              <ToolBtn onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()} active={editor?.isActive('heading', { level: 2 })} title="عنوان">
-                <Heading2 size={13} />
-              </ToolBtn>
+              <ToolBtn onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()} active={editor?.isActive('heading', { level: 2 })} title="عنوان"><Heading2 size={13} /></ToolBtn>
               <div className="w-px h-5 bg-slate-200 dark:bg-brand-600 mx-0.5" />
-              <ToolBtn onClick={() => editor?.chain().focus().toggleBulletList().run()} active={editor?.isActive('bulletList')} title="قائمة نقطية">
-                <List size={13} />
-              </ToolBtn>
-              <ToolBtn onClick={() => editor?.chain().focus().toggleOrderedList().run()} active={editor?.isActive('orderedList')} title="قائمة مرقمة">
-                <ListOrdered size={13} />
-              </ToolBtn>
+              <ToolBtn onClick={() => editor?.chain().focus().toggleBulletList().run()} active={editor?.isActive('bulletList')} title="قائمة نقطية"><List size={13} /></ToolBtn>
+              <ToolBtn onClick={() => editor?.chain().focus().toggleOrderedList().run()} active={editor?.isActive('orderedList')} title="قائمة مرقمة"><ListOrdered size={13} /></ToolBtn>
               <div className="w-px h-5 bg-slate-200 dark:bg-brand-600 mx-0.5" />
-              <ToolBtn onClick={() => editor?.chain().focus().setTextAlign('right').run()} active={editor?.isActive({ textAlign: 'right' })} title="يمين">
-                <AlignRight size={13} />
-              </ToolBtn>
-              <ToolBtn onClick={() => editor?.chain().focus().setTextAlign('center').run()} active={editor?.isActive({ textAlign: 'center' })} title="وسط">
-                <AlignCenter size={13} />
-              </ToolBtn>
-              <ToolBtn onClick={() => editor?.chain().focus().setTextAlign('justify').run()} active={editor?.isActive({ textAlign: 'justify' })} title="ضبط">
-                <AlignJustify size={13} />
-              </ToolBtn>
+              <ToolBtn onClick={() => editor?.chain().focus().setTextAlign('right').run()} active={editor?.isActive({ textAlign: 'right' })} title="يمين"><AlignRight size={13} /></ToolBtn>
+              <ToolBtn onClick={() => editor?.chain().focus().setTextAlign('center').run()} active={editor?.isActive({ textAlign: 'center' })} title="وسط"><AlignCenter size={13} /></ToolBtn>
+              <ToolBtn onClick={() => editor?.chain().focus().setTextAlign('justify').run()} active={editor?.isActive({ textAlign: 'justify' })} title="ضبط"><AlignJustify size={13} /></ToolBtn>
               <div className="w-px h-5 bg-slate-200 dark:bg-brand-600 mx-0.5" />
-              <ToolBtn onClick={() => editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} title="إدراج جدول">
-                <Table2 size={13} />
-              </ToolBtn>
-              <ToolBtn onClick={insertImage} title="إدراج صورة">
-                <ImageIcon size={13} />
-              </ToolBtn>
+              <ToolBtn onClick={() => editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} title="إدراج جدول"><Table2 size={13} /></ToolBtn>
+              <ToolBtn onClick={insertImage} title="إدراج صورة"><ImageIcon size={13} /></ToolBtn>
             </div>
 
-            {/* Editor area */}
             <div className="tiptap-editor border-0 rounded-none bg-white dark:bg-brand-900">
               <EditorContent editor={editor} />
             </div>
           </div>
 
-          {/* A4 Preview */}
-          <div className="bg-slate-200 dark:bg-slate-700 rounded-2xl p-4 xl:p-6 overflow-auto
-                          flex justify-center items-start shadow-inner border border-slate-300 dark:border-slate-600">
-            <div
-              className="relative shadow-[0_8px_40px_rgba(0,0,0,0.18)] ring-1 ring-slate-900/5 bg-white"
-              style={{
-                width: '210mm',
-                minHeight: '297mm',
-                backgroundImage: 'url(/brand/letterhead.png)',
-                backgroundSize: '210mm 297mm',
-                backgroundRepeat: 'repeat',
-                backgroundPosition: 'top left',
-              }}
-            >
-              {/* Metadata overlays — calibrated LEFT of label colons (x=8-56mm) */}
-              <div className="absolute" style={{ top: '17.5mm', left: '8mm', width: '48mm' }}>
-                <span className="block text-right text-[11px] font-bold text-[#1a365d] leading-none">
-                  {data.reference}
-                </span>
-              </div>
-              <div className="absolute" style={{ top: '22.5mm', left: '8mm', width: '48mm' }}>
-                <span className="block text-right text-[11px] font-bold text-[#1a365d] leading-none">
-                  {data.date}
-                </span>
-              </div>
-              <div className="absolute" style={{ top: '27.5mm', left: '8mm', width: '48mm' }}>
-                <span className="block text-right text-[11px] font-bold text-[#1a365d] leading-none">
-                  {data.subject}
-                </span>
-              </div>
-
-              {/* Letter body — padding matches @page margins (42mm top, 18mm sides, 32mm bottom) */}
-              <div style={{ padding: '42mm 18mm 32mm' }}>
-
-                {/* Recipient */}
-                <div className="mb-5">
-                  <p className="text-[13.5px] font-semibold text-[#1a365d] leading-[1.8]">
-                    السادة /{' '}
-                    {data.recipient || <span className="text-slate-300 font-normal text-sm">اسم المستلم</span>}
-                  </p>
-                  <p className="text-[13px] text-slate-500">حفظهم الله،،</p>
-                </div>
-
-                {/* Subject heading */}
-                {data.subject && (
-                  <div className="text-center text-[14px] font-black text-[#1a365d] py-2 mb-4"
-                    style={{ borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>
-                    الموضوع: {data.subject}
-                  </div>
-                )}
-
-                {/* Body */}
-                <div className="lp text-[13.5px] text-slate-800"
-                  style={{ lineHeight: 2.3, textAlign: 'justify', wordBreak: 'break-word' }}
-                  dangerouslySetInnerHTML={{
-                    __html: data.body || '<p style="color:#cbd5e1;font-style:italic">ابدأ بكتابة نص الخطاب…</p>',
-                  }}
-                />
-
-                {/* Signature + Stamp */}
-                <div className="mt-12 flex items-end justify-between" style={{ direction: 'ltr', minHeight: '90px' }}>
-                  {/* Left: stamp */}
-                  <div className="flex flex-col items-start">
-                    {canUseStamp && showStamp && (
-                      <img src="/brand/stamp.png" alt="الختم" className="w-[160px] object-contain opacity-90" />
-                    )}
-                  </div>
-
-                  {/* Right: signature */}
-                  <div className="text-center min-w-[165px]" style={{ direction: 'rtl' }}>
-                    {data.signTitle && (
-                      <p className="text-[12px] font-bold text-[#1a365d] mb-1">{data.signTitle}</p>
-                    )}
-                    {signature && (
-                      <img src={signature} alt="التوقيع" className="max-h-[50px] object-contain mx-auto mb-1" />
-                    )}
-                    {data.signName && (
-                      <p className="text-[15px] font-black text-[#1a365d] pt-[6px] m-0"
-                        style={{ borderTop: '1.5px solid #cbd5e1' }}>
-                        {data.signName}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-              </div>
+          {/* Multi-page A4 preview */}
+          <div className="bg-slate-300 dark:bg-slate-800 rounded-2xl p-4 xl:p-6 overflow-auto
+                          flex justify-center items-start shadow-inner border border-slate-300 dark:border-slate-600
+                          min-h-[600px]">
+            <div className="flex flex-col items-center">
+              {pages.map((chunk, i) => {
+                const html = pageHTML({
+                  bodyChunk: chunk, pageIndex: i, totalPages: pages.length,
+                  data, showStamp: canUseStamp ? showStamp : false, signature,
+                }).replace(/STAMP_URL/g, '/brand/stamp.png')
+                return (
+                  <div key={i} dangerouslySetInnerHTML={{ __html: html }} />
+                )
+              })}
             </div>
           </div>
         </div>
