@@ -393,22 +393,46 @@ async function readHostinger(): Promise<ServiceResult[]> {
     const data = await r.json() as any
     const subs: any[] = Array.isArray(data) ? data : (data.data || data.subscriptions || [])
 
-    // Keep only subs whose name/domain references this project (skip semak etc.)
-    const ours = subs.filter((s: any) => {
+    // The subscription rows themselves don't expose the related domain,
+    // so we enrich each one by fetching its resources (the domains/services
+    // attached to the subscription). Hostinger billing API exposes this at:
+    //   GET /api/billing/v1/subscriptions/{id}/resources
+    // We do this concurrently.
+    const enriched = await Promise.all(subs.map(async (s: any) => {
+      try {
+        const rr = await fetch(
+          `https://developers.hostinger.com/api/billing/v1/subscriptions/${s.id}/resources`,
+          { headers: { Authorization: `Bearer ${tok}`, Accept: 'application/json' } },
+        )
+        if (rr.ok) {
+          const rd = await rr.json() as any
+          const items: any[] = Array.isArray(rd) ? rd : (rd.data || rd.resources || [])
+          const domain = items[0]?.metadata?.domain || items[0]?.domain || items[0]?.name || null
+          return { ...s, _domain: domain, _resources: items }
+        }
+      } catch { /* swallow per-sub failure */ }
+      return s
+    }))
+
+    const ours = enriched.filter((s: any) => {
       const blob = JSON.stringify(s).toLowerCase()
       return PROJECT_DOMAIN_TAGS.some(t => blob.includes(t))
     })
 
     if (ours.length === 0) {
-      // Debug: show the keys of the first subscription so we can refine the filter
-      const sample = subs[0] ? { keys: Object.keys(subs[0]), first: subs[0] } : null
+      // Debug: show what the resources endpoint gave us for every sub
+      const debug = enriched.map((s: any) => ({
+        id: s.id, name: s.name, renewal_price: s.renewal_price,
+        next_billing_at: s.next_billing_at, _domain: s._domain || null,
+        _resource_keys: s._resources?.[0] ? Object.keys(s._resources[0]) : null,
+      }))
       return [{
         service: 'Hostinger',
         status: 'no_data',
         monthly_sar: null,
-        usage: { total_subs: subs.length, sample } as any,
+        usage: { total_subs: subs.length, debug } as any,
         note: subs.length
-          ? `${subs.length} اشتراك في الحساب لكن لا شي يطابق "aknafalqurba"`
+          ? `${subs.length} اشتراك بالحساب — لا شي يطابق "aknafalqurba" بعد التحسين`
           : 'لم تُرجع API أي اشتراكات',
       }]
     }
