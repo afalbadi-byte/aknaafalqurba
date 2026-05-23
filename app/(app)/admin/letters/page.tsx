@@ -27,7 +27,7 @@ const PRINT_CSS = `
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { margin: 0; padding: 0; font-family: 'Cairo', sans-serif; direction: rtl; }
 
-  @page { size: A4 portrait; margin: 38mm 18mm 54mm 18mm; }
+  @page { size: A4 portrait; margin: 42mm 18mm 32mm 18mm; }
 
   @media print {
     html {
@@ -47,16 +47,17 @@ const PRINT_CSS = `
     print-color-adjust: exact;
   }
 
-  /* ── Metadata values — positions calibrated to reference box ── */
-  /* Value column: x=72-155mm (left of the 160mm separator)      */
+  /* ── Metadata values — overlaid LEFT of the labels ──         */
+  /* Labels are on the LEFT side of the letterhead (الرقم/التاريخ/الموضوع) */
+  /* Logo is on the RIGHT side. Values go to the left of label colons.   */
   .mv {
     position: absolute; direction: rtl; text-align: right;
-    color: #1a365d; font-weight: 700; font-size: 10px;
-    left: 72mm; width: 83mm;
+    color: #1a365d; font-weight: 700; font-size: 11px;
+    left: 8mm; width: 48mm;
   }
-  .mv-ref  { top: 20mm; }
-  .mv-date { top: 26.5mm; }
-  .mv-subj { top: 31mm; }
+  .mv-ref  { top: 17.5mm; }
+  .mv-date { top: 22.5mm; }
+  .mv-subj { top: 27.5mm; }
 
   .lh-body { padding: 0; }
 
@@ -750,25 +751,25 @@ export default function LetterGenerator() {
                 backgroundPosition: 'top left',
               }}
             >
-              {/* Metadata overlays — calibrated to value column (x=72-155mm) */}
-              <div className="absolute" style={{ top: '20mm', left: '72mm', width: '83mm' }}>
-                <span className="block text-right text-[10px] font-bold text-[#1a365d] leading-none">
+              {/* Metadata overlays — calibrated LEFT of label colons (x=8-56mm) */}
+              <div className="absolute" style={{ top: '17.5mm', left: '8mm', width: '48mm' }}>
+                <span className="block text-right text-[11px] font-bold text-[#1a365d] leading-none">
                   {data.reference}
                 </span>
               </div>
-              <div className="absolute" style={{ top: '26.5mm', left: '72mm', width: '83mm' }}>
-                <span className="block text-right text-[10px] font-bold text-[#1a365d] leading-none">
+              <div className="absolute" style={{ top: '22.5mm', left: '8mm', width: '48mm' }}>
+                <span className="block text-right text-[11px] font-bold text-[#1a365d] leading-none">
                   {data.date}
                 </span>
               </div>
-              <div className="absolute" style={{ top: '31mm', left: '72mm', width: '83mm' }}>
-                <span className="block text-right text-[10px] font-bold text-[#1a365d] leading-none">
+              <div className="absolute" style={{ top: '27.5mm', left: '8mm', width: '48mm' }}>
+                <span className="block text-right text-[11px] font-bold text-[#1a365d] leading-none">
                   {data.subject}
                 </span>
               </div>
 
-              {/* Letter body — padding matches @page margins (38mm top, 18mm sides, 54mm bottom) */}
-              <div style={{ padding: '38mm 18mm 54mm' }}>
+              {/* Letter body — padding matches @page margins (42mm top, 18mm sides, 32mm bottom) */}
+              <div style={{ padding: '42mm 18mm 32mm' }}>
 
                 {/* Recipient */}
                 <div className="mb-5">
