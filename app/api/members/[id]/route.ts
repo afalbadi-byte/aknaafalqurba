@@ -11,15 +11,50 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   if (id !== user.id && !isCommittee(user)) return jsonError('forbidden', 'لا تملك الصلاحية', 403)
 
   const [row] = await sql`
-    SELECT id, full_name, national_id, phone, email, branch, birth_year, city,
-           address, role, status, avatar, notes, created_at
+    SELECT id, full_name, national_id, phone, email, email_verified,
+           branch, birth_year, birth_date, city, address,
+           role, status, avatar, notes, created_at, updated_at,
+           gender, generation_number,
+           COALESCE(id_verified, false) AS id_verified, id_verified_at,
+           (id_document IS NOT NULL) AS has_id_document,
+           (signature IS NOT NULL)   AS has_signature
     FROM members WHERE id = ${id}
   `
   if (!row) return jsonError('not_found', 'العضو غير موجود', 404)
   if (id !== user.id && !isAdmin(user)) {
     delete row.national_id; delete row.address
   }
-  return jsonOK({ member: row })
+
+  // Detail counts (only for admin/committee viewing others, or self)
+  const dependents = await sql`
+    SELECT id, full_name, relation, birth_date, national_id
+    FROM family_dependents WHERE member_id = ${id} ORDER BY created_at
+  `
+  const [payStats] = await sql`
+    SELECT
+      COUNT(*) FILTER (WHERE status = 'approved')::int AS approved_count,
+      COUNT(*) FILTER (WHERE status = 'pending')::int  AS pending_count,
+      COALESCE(SUM(amount) FILTER (WHERE status = 'approved'), 0)::numeric AS approved_total
+    FROM payments WHERE member_id = ${id}
+  `
+  const [aidStats] = await sql`
+    SELECT
+      COUNT(*)::int AS total_count,
+      COUNT(*) FILTER (WHERE status IN ('approved', 'disbursed'))::int AS approved_count
+    FROM aid_requests WHERE member_id = ${id}
+  `
+
+  return jsonOK({
+    member: row,
+    dependents,
+    stats: {
+      payments_approved: payStats.approved_count,
+      payments_pending:  payStats.pending_count,
+      payments_total:    Number(payStats.approved_total),
+      aid_total:         aidStats.total_count,
+      aid_approved:      aidStats.approved_count,
+    },
+  })
 }
 
 export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {

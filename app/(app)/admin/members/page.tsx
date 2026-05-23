@@ -1,10 +1,12 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api-client'
-import { ROLE_LABELS, STATUS_LABELS, statusBadge, formatDate } from '@/lib/utils'
+import { ROLE_LABELS, STATUS_LABELS, RELATION_LABELS, statusBadge, formatDate } from '@/lib/utils'
 import {
   CheckCircle, UserCog, Ban, ShieldCheck, Search,
   MailCheck, FileText, Loader2, BrainCircuit, BadgeCheck, Trash2,
+  Eye, Phone, Mail, MapPin, Calendar, Users as UsersIcon, Hash,
+  Wallet, HandHeart, Edit3,
 } from 'lucide-react'
 import Modal from '@/components/modal'
 import { Avatar } from '@/components/app-shell'
@@ -30,6 +32,11 @@ export default function Members() {
   // AI verification
   const [aiVerifying, setAiVerifying] = useState<number | null>(null)
   const [aiResult,    setAiResult]    = useState<any>(null)
+
+  // Member details view
+  const [detailMember, setDetailMember] = useState<any>(null)
+  const [detailData,   setDetailData]   = useState<any>(null)
+  const [detailBusy,   setDetailBusy]   = useState(false)
 
   const isAdmin = user && TOP_ADMIN.includes(user.role)
 
@@ -88,6 +95,17 @@ export default function Members() {
     } finally {
       setAiVerifying(null)
     }
+  }
+
+  async function openDetail(m: any) {
+    setDetailMember(m); setDetailData(null); setDetailBusy(true)
+    try {
+      const r = await api.members.get(m.id)
+      setDetailData(r)
+    } catch (e: any) {
+      alert(e.message || 'تعذّر تحميل البيانات')
+      setDetailMember(null)
+    } finally { setDetailBusy(false) }
   }
 
   async function openDoc(m: any) {
@@ -172,11 +190,14 @@ export default function Members() {
                 {list.map(m => (
                   <tr key={m.id} className="hover:bg-brand-50/30 dark:hover:bg-brand-800/40">
                     <td className="p-3">
-                      <div className="flex items-center gap-3">
+                      <button onClick={() => openDetail(m)}
+                        className="flex items-center gap-3 text-right hover:text-[#c5a059] transition group">
                         <Avatar name={m.full_name} src={m.avatar} size={36} />
                         <div>
                           <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-brand-950 dark:text-brand-50">{m.full_name}</span>
+                            <span className="font-bold text-brand-950 dark:text-brand-50 group-hover:text-[#c5a059] dark:group-hover:text-[#c5a059] transition">
+                              {m.full_name}
+                            </span>
                             {m.id_verified && (
                               <span title="تم التحقق من الهوية">
                                 <BadgeCheck size={14} className="text-emerald-500 shrink-0" />
@@ -193,7 +214,7 @@ export default function Members() {
                             </div>
                           )}
                         </div>
-                      </div>
+                      </button>
                     </td>
                     <td className="p-3 text-brand-700 dark:text-brand-300">{m.branch || '—'}</td>
                     <td className="p-3 font-mono text-xs text-brand-600 dark:text-brand-400">{m.phone}</td>
@@ -204,6 +225,10 @@ export default function Members() {
                     <td className="p-3 text-brand-600 dark:text-brand-400">{formatDate(m.created_at)}</td>
                     <td className="p-3">
                       <div className="flex items-center gap-1">
+                        <button onClick={() => openDetail(m)} title="عرض التفاصيل"
+                          className="p-1.5 hover:bg-brand-50 dark:hover:bg-brand-800 text-brand-500 rounded">
+                          <Eye size={16} />
+                        </button>
                         {m.status === 'pending' && (
                           <button onClick={() => approve(m.id)} title="تفعيل"
                             className="p-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-emerald-600 rounded">
@@ -374,6 +399,133 @@ export default function Members() {
             )}
           </div>
         )}
+      </Modal>
+
+      {/* ── Member detail modal ── */}
+      <Modal open={!!detailMember} onClose={() => { setDetailMember(null); setDetailData(null) }}
+        title={detailMember?.full_name || 'تفاصيل العضو'}>
+        {detailBusy && (
+          <div className="flex flex-col items-center justify-center py-10 gap-2 text-brand-500">
+            <Loader2 size={28} className="animate-spin" />
+            <span className="text-sm">جاري التحميل...</span>
+          </div>
+        )}
+        {!detailBusy && detailData && (() => {
+          const m = detailData.member as any
+          const deps = detailData.dependents as any[]
+          const st = detailData.stats as any
+          const Row = ({ icon, label, value, mono }: { icon: React.ReactNode; label: string; value: any; mono?: boolean }) =>
+            value === null || value === undefined || value === '' ? null : (
+              <div className="flex items-start gap-2.5 py-1.5">
+                <span className="text-brand-400 dark:text-brand-500 shrink-0 mt-0.5">{icon}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] text-brand-400 dark:text-brand-500 font-semibold">{label}</div>
+                  <div className={`text-sm text-brand-900 dark:text-brand-100 font-semibold ${mono ? 'font-mono' : ''} break-words`}>
+                    {value}
+                  </div>
+                </div>
+              </div>
+            )
+          return (
+            <div className="space-y-4 text-sm">
+              {/* Header: avatar + role/status */}
+              <div className="flex items-center gap-3 pb-3 border-b border-brand-100 dark:border-brand-700">
+                <Avatar name={m.full_name} src={m.avatar} size={56} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-black text-brand-950 dark:text-brand-50">{m.full_name}</span>
+                    {m.id_verified && <BadgeCheck size={15} className="text-emerald-500" />}
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                    <span className="badge badge-info text-xs">{ROLE_LABELS[m.role]}</span>
+                    <span className={`badge ${statusBadge(m.status)} text-xs`}>{STATUS_LABELS[m.status] || m.status}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-2.5 text-center">
+                  <div className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold mb-0.5">اشتراكات مقبولة</div>
+                  <div className="text-lg font-black text-emerald-700 dark:text-emerald-300">{st.payments_approved}</div>
+                  <div className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5">{st.payments_total.toLocaleString('ar-SA')} ر.س</div>
+                </div>
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-2.5 text-center">
+                  <div className="text-[10px] text-blue-700 dark:text-blue-400 font-semibold mb-0.5">طلبات معونة</div>
+                  <div className="text-lg font-black text-blue-700 dark:text-blue-300">{st.aid_total}</div>
+                  <div className="text-[10px] text-blue-600 dark:text-blue-400 mt-0.5">منها {st.aid_approved} مقبولة</div>
+                </div>
+                <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-2.5 text-center">
+                  <div className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold mb-0.5">أفراد العائلة</div>
+                  <div className="text-lg font-black text-amber-700 dark:text-amber-300">{deps.length}</div>
+                  <div className="text-[10px] text-amber-600 dark:text-amber-400 mt-0.5">تابع</div>
+                </div>
+              </div>
+
+              {/* Contact + identity */}
+              <div className="bg-slate-50 dark:bg-brand-800 rounded-xl p-3">
+                <h4 className="font-bold text-[#1a365d] dark:text-brand-100 text-xs mb-2">معلومات الاتصال والهوية</h4>
+                <div className="grid sm:grid-cols-2 gap-x-3">
+                  <Row icon={<Phone size={13} />}    label="الجوال"      value={m.phone}       mono />
+                  <Row icon={<Mail size={13} />}     label="البريد"      value={m.email ? `${m.email}${m.email_verified ? '' : ' (غير مؤكد)'}` : null} />
+                  <Row icon={<Hash size={13} />}     label="رقم الهوية"  value={m.national_id} mono />
+                  <Row icon={<Calendar size={13} />} label="تاريخ الميلاد" value={m.birth_date ? formatDate(m.birth_date) : (m.birth_year || null)} />
+                  <Row icon={<UsersIcon size={13} />} label="الجنس"       value={m.gender === 'male' ? 'ذكر' : m.gender === 'female' ? 'أنثى' : null} />
+                  <Row icon={<UsersIcon size={13} />} label="رقم الجيل"   value={m.generation_number} mono />
+                </div>
+              </div>
+
+              {/* Location */}
+              <div className="bg-slate-50 dark:bg-brand-800 rounded-xl p-3">
+                <h4 className="font-bold text-[#1a365d] dark:text-brand-100 text-xs mb-2">السكن والفرع</h4>
+                <div className="grid sm:grid-cols-2 gap-x-3">
+                  <Row icon={<MapPin size={13} />} label="الفرع"   value={m.branch} />
+                  <Row icon={<MapPin size={13} />} label="المدينة" value={m.city} />
+                  <Row icon={<MapPin size={13} />} label="العنوان" value={m.address} />
+                </div>
+              </div>
+
+              {/* Notes */}
+              {m.notes && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3">
+                  <h4 className="font-bold text-amber-700 dark:text-amber-300 text-xs mb-1.5 flex items-center gap-1.5">
+                    <Edit3 size={12} /> ملاحظات
+                  </h4>
+                  <p className="text-xs text-amber-800 dark:text-amber-200 whitespace-pre-line">{m.notes}</p>
+                </div>
+              )}
+
+              {/* Dependents */}
+              {deps.length > 0 && (
+                <div className="bg-slate-50 dark:bg-brand-800 rounded-xl p-3">
+                  <h4 className="font-bold text-[#1a365d] dark:text-brand-100 text-xs mb-2 flex items-center gap-1.5">
+                    <UsersIcon size={12} /> أفراد العائلة ({deps.length})
+                  </h4>
+                  <div className="space-y-1.5">
+                    {deps.map(d => (
+                      <div key={d.id} className="flex items-center justify-between text-xs bg-white dark:bg-brand-900 rounded-lg px-2.5 py-1.5">
+                        <div>
+                          <div className="font-semibold text-brand-900 dark:text-brand-100">{d.full_name}</div>
+                          {d.national_id && <div className="text-[10px] text-brand-400 font-mono">{d.national_id}</div>}
+                        </div>
+                        <div className="text-[10px] text-brand-500 dark:text-brand-400 font-semibold text-left">
+                          {(RELATION_LABELS as any)[d.relation] || d.relation}
+                          {d.birth_date && <div className="text-brand-400">{formatDate(d.birth_date)}</div>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Metadata */}
+              <div className="grid grid-cols-2 gap-2 text-[10px] text-brand-400 dark:text-brand-500 pt-2 border-t border-brand-100 dark:border-brand-700">
+                <div>سجّل في: {formatDate(m.created_at)}</div>
+                {m.id_verified_at && <div>تحقق الهوية: {formatDate(m.id_verified_at)}</div>}
+              </div>
+            </div>
+          )
+        })()}
       </Modal>
 
       {/* ── ID Document viewer modal ── */}

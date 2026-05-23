@@ -30,10 +30,15 @@ export default function Profile() {
   const [avatarBusy, setAvatarBusy] = useState(false)
   const [avatarMsg,  setAvatarMsg]  = useState<any>(null)
 
-  // Signature
+  // Signature — upload + draw
   const sigRef = useRef<HTMLInputElement>(null)
   const [sigBusy, setSigBusy] = useState(false)
   const [sigMsg,  setSigMsg]  = useState<any>(null)
+  const [sigMode, setSigMode] = useState<'draw' | 'upload'>('draw')
+  const padRef = useRef<HTMLCanvasElement>(null)
+  const drawingRef = useRef(false)
+  const lastPtRef  = useRef<{ x: number; y: number } | null>(null)
+  const padDirtyRef = useRef(false)
 
   useEffect(() => {
     api.auth.me().then(r => {
@@ -141,6 +146,82 @@ export default function Profile() {
       await api.members.signatureRemove()
       setUser((u: any) => ({ ...u, signature: null }))
       setSigMsg({ ok: true, text: 'تم حذف التوقيع' })
+    } catch (err: any) { setSigMsg({ ok: false, text: err.message }) }
+    finally { setSigBusy(false) }
+  }
+
+  // ----- Signature drawing pad -----
+  function padPos(e: React.MouseEvent | React.TouchEvent) {
+    const canvas = padRef.current!
+    const rect = canvas.getBoundingClientRect()
+    const isTouch = 'touches' in e
+    const clientX = isTouch ? e.touches[0].clientX : e.clientX
+    const clientY = isTouch ? e.touches[0].clientY : e.clientY
+    return {
+      x: (clientX - rect.left) * (canvas.width / rect.width),
+      y: (clientY - rect.top)  * (canvas.height / rect.height),
+    }
+  }
+
+  function padStart(e: React.MouseEvent | React.TouchEvent) {
+    if ('touches' in e) e.preventDefault()
+    const canvas = padRef.current; if (!canvas) return
+    drawingRef.current = true
+    lastPtRef.current = padPos(e)
+  }
+
+  function padMove(e: React.MouseEvent | React.TouchEvent) {
+    if (!drawingRef.current) return
+    if ('touches' in e) e.preventDefault()
+    const canvas = padRef.current; if (!canvas) return
+    const ctx = canvas.getContext('2d')!; if (!ctx) return
+    const p = padPos(e)
+    const last = lastPtRef.current
+    if (last) {
+      ctx.beginPath()
+      ctx.moveTo(last.x, last.y)
+      ctx.lineTo(p.x, p.y)
+      ctx.stroke()
+      padDirtyRef.current = true
+    }
+    lastPtRef.current = p
+  }
+
+  function padEnd() { drawingRef.current = false; lastPtRef.current = null }
+
+  function padClear() {
+    const canvas = padRef.current; if (!canvas) return
+    const ctx = canvas.getContext('2d')!
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    padDirtyRef.current = false
+  }
+
+  function padInit() {
+    const canvas = padRef.current; if (!canvas) return
+    const ctx = canvas.getContext('2d')!
+    ctx.strokeStyle = '#1a365d'
+    ctx.lineWidth = 2.5
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+  }
+
+  useEffect(() => { if (sigMode === 'draw') padInit() }, [sigMode])
+
+  async function saveDrawnSignature() {
+    const canvas = padRef.current; if (!canvas) return
+    if (!padDirtyRef.current) {
+      setSigMsg({ ok: false, text: 'يرجى رسم التوقيع أولاً' }); return
+    }
+    setSigBusy(true); setSigMsg(null)
+    try {
+      const blob = await new Promise<Blob | null>(res =>
+        canvas.toBlob(res, 'image/png'))
+      if (!blob) throw new Error('فشل توليد الصورة')
+      const fd = new FormData(); fd.append('signature', blob, 'signature.png')
+      const r = await api.members.signatureUpload(fd)
+      setUser((u: any) => ({ ...u, signature: r.signature }))
+      setSigMsg({ ok: true, text: 'تم حفظ التوقيع' })
+      padClear()
     } catch (err: any) { setSigMsg({ ok: false, text: err.message }) }
     finally { setSigBusy(false) }
   }
@@ -433,30 +514,100 @@ export default function Profile() {
               التوقيع الرسمي
             </h3>
             <p className="text-xs text-brand-400 dark:text-brand-500 mb-3">
-              يظهر في الخطابات الرسمية أسفل اسمك. يُفضّل خلفية بيضاء أو شفافة.
+              يظهر في الخطابات الرسمية أسفل اسمك. يمكنك رسمه مباشرةً أو رفع صورة.
             </p>
+
             {user.signature && (
-              <div className="mb-3 border border-slate-200 dark:border-brand-700 rounded-xl p-3 bg-slate-50 dark:bg-brand-800 flex items-center justify-center">
-                <img src={user.signature} alt="التوقيع" className="max-h-16 max-w-full object-contain" />
+              <div className="mb-3 border border-slate-200 dark:border-brand-700 rounded-xl p-3 bg-slate-50 dark:bg-brand-800">
+                <p className="text-[10px] text-brand-400 mb-1.5">التوقيع الحالي</p>
+                <div className="flex items-center justify-center">
+                  <img src={user.signature} alt="التوقيع" className="max-h-16 max-w-full object-contain" />
+                </div>
               </div>
             )}
+
+            {/* Mode switcher */}
+            <div className="flex items-center gap-1 mb-3 bg-slate-100 dark:bg-brand-800 p-1 rounded-xl">
+              <button
+                onClick={() => setSigMode('draw')}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                  sigMode === 'draw'
+                    ? 'bg-white dark:bg-brand-700 text-[#1a365d] dark:text-brand-50 shadow-sm'
+                    : 'text-brand-500 dark:text-brand-400 hover:text-brand-700'
+                }`}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/>
+                </svg>
+                ارسم
+              </button>
+              <button
+                onClick={() => setSigMode('upload')}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                  sigMode === 'upload'
+                    ? 'bg-white dark:bg-brand-700 text-[#1a365d] dark:text-brand-50 shadow-sm'
+                    : 'text-brand-500 dark:text-brand-400 hover:text-brand-700'
+                }`}>
+                <Camera size={12} /> ارفع صورة
+              </button>
+            </div>
+
             <input ref={sigRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleSignatureChange} />
+
             {sigMsg && (
               <div className={`mb-2 text-xs rounded px-3 py-2 ${sigMsg.ok ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'}`}>
                 {sigMsg.text}
               </div>
             )}
-            <div className="flex gap-2">
-              <button className="btn-secondary flex-1 text-xs" onClick={() => sigRef.current?.click()} disabled={sigBusy}>
-                {sigBusy ? <Loader2 className="animate-spin" size={13} /> : <Camera size={13} />}
-                {user.signature ? 'تغيير التوقيع' : 'رفع التوقيع'}
-              </button>
-              {user.signature && (
-                <button className="btn-ghost !p-2 text-red-500 hover:text-red-600 dark:text-red-400" onClick={removeSignature} disabled={sigBusy} title="حذف التوقيع">
-                  <XIcon size={16} />
+
+            {/* DRAW mode */}
+            {sigMode === 'draw' && (
+              <div className="space-y-2">
+                <div className="border-2 border-dashed border-brand-200 dark:border-brand-700 rounded-xl p-2 bg-white">
+                  <canvas
+                    ref={padRef}
+                    width={640}
+                    height={200}
+                    className="w-full bg-white rounded cursor-crosshair select-none touch-none"
+                    style={{ aspectRatio: '16/5' }}
+                    onMouseDown={padStart}
+                    onMouseMove={padMove}
+                    onMouseUp={padEnd}
+                    onMouseLeave={padEnd}
+                    onTouchStart={padStart}
+                    onTouchMove={padMove}
+                    onTouchEnd={padEnd}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={saveDrawnSignature} disabled={sigBusy}
+                    className="flex-1 btn-primary text-xs">
+                    {sigBusy ? <Loader2 className="animate-spin" size={13} /> : <Save size={13} />}
+                    حفظ الرسمة
+                  </button>
+                  <button onClick={padClear} disabled={sigBusy}
+                    className="btn-secondary text-xs px-3">
+                    <XIcon size={13} /> مسح
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* UPLOAD mode */}
+            {sigMode === 'upload' && (
+              <div className="flex gap-2">
+                <button className="btn-secondary flex-1 text-xs" onClick={() => sigRef.current?.click()} disabled={sigBusy}>
+                  {sigBusy ? <Loader2 className="animate-spin" size={13} /> : <Camera size={13} />}
+                  {user.signature ? 'تغيير الصورة' : 'اختر صورة'}
                 </button>
-              )}
-            </div>
+              </div>
+            )}
+
+            {user.signature && (
+              <button onClick={removeSignature} disabled={sigBusy}
+                className="mt-2 w-full text-xs text-red-500 hover:text-red-600 dark:text-red-400 font-semibold flex items-center justify-center gap-1">
+                <XIcon size={12} /> حذف التوقيع الحالي
+              </button>
+            )}
           </div>
 
           {/* Email verification (only when unverified) */}
