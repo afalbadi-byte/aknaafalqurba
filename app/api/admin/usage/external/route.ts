@@ -30,7 +30,7 @@ export async function GET() {
   results.push(await readVercelBlob())
   results.push(readResend())
   results.push(readAnthropic())
-  results.push(readVercelPlatform())
+  results.push(await readVercelPlatform())
   results.push(readNeon())
   results.push(readDomain())
 
@@ -178,9 +178,9 @@ function readAnthropic(): ServiceResult {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Vercel platform (hosting) — needs personal access token
+   Vercel platform — calls /v2/user to read the current plan, prices it
 ───────────────────────────────────────────────────────────── */
-function readVercelPlatform(): ServiceResult {
+async function readVercelPlatform(): Promise<ServiceResult> {
   const tok = process.env.VERCEL_API_TOKEN
   if (!tok) {
     return {
@@ -189,15 +189,38 @@ function readVercelPlatform(): ServiceResult {
       monthly_sar: null,
       usage: null,
       note: 'لجلب باقتك الفعلية تحتاج Vercel API token',
-      setup_hint: 'أنشئ Token من vercel.com/account/tokens وأضفه باسم VERCEL_API_TOKEN.',
+      setup_hint: 'أنشئ Token من vercel.com/account/tokens (Scope: Full Account) وأضفه في Vercel ← Settings ← Environment Variables باسم VERCEL_API_TOKEN ثم Redeploy.',
     }
   }
-  return {
-    service: 'استضافة Vercel',
-    status: 'no_data',
-    monthly_sar: null,
-    usage: null,
-    note: 'Token موجود — قراءة الفاتورة قيد التطوير',
+  try {
+    const r = await fetch('https://api.vercel.com/v2/user', {
+      headers: { Authorization: `Bearer ${tok}` },
+    })
+    if (!r.ok) {
+      const text = await r.text().catch(() => '')
+      return svcError('استضافة Vercel', `HTTP ${r.status}: ${text.slice(0, 150)}`)
+    }
+    const data = await r.json() as any
+    const user = data.user || data
+    const plan = (user?.billing?.plan || user?.plan || 'hobby').toString().toLowerCase()
+    const planPriceUSD: Record<string, number> = {
+      hobby: 0, pro: 20, enterprise: 100, free: 0,
+    }
+    const monthly_usd = planPriceUSD[plan] ?? 0
+    return {
+      service: 'استضافة Vercel',
+      status: 'ok',
+      monthly_sar: Math.round(monthly_usd * SAR_PER_USD * 100) / 100,
+      usage: {
+        plan,
+        username: user?.username || user?.email || null,
+      },
+      note: monthly_usd === 0
+        ? `الباقة: ${plan} (مجانية) — قد تنشأ رسوم إضافية للاستخدام فوق الحد`
+        : `الباقة: ${plan} — ${monthly_usd}$/شهر`,
+    }
+  } catch (e: any) {
+    return svcError('استضافة Vercel', e.message || String(e))
   }
 }
 
