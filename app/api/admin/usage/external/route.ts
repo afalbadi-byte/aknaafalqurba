@@ -393,95 +393,56 @@ async function readHostinger(): Promise<ServiceResult[]> {
     const data = await r.json() as any
     const subs: any[] = Array.isArray(data) ? data : (data.data || data.subscriptions || [])
 
-    // Fetch the domains portfolio to map domain -> subscription_id, then
-    // also peek at the orders endpoint as a backup mapping source.
-    const subToDomain = new Map<string, string>()  // subscription_id -> domain
+    // Hostinger's billing API doesn't expose the domain on a subscription,
+    // and the supplementary endpoints (/domains/portfolio, /orders) return
+    // nothing useful here. So we let the operator pin which subscription
+    // IDs belong to this project via env var:
+    //   HOSTINGER_SUB_IDS=id1,id2
+    // If unset, fall back to subscriptions whose next_billing_at is set
+    // (an OK heuristic for "active in this project" given the current data).
+    const idsCSV = process.env.HOSTINGER_SUB_IDS || ''
+    const allowIds = new Set(idsCSV.split(',').map(s => s.trim()).filter(Boolean))
 
-    try {
-      const pr = await fetch('https://developers.hostinger.com/api/domains/v1/portfolio', {
-        headers: { Authorization: `Bearer ${tok}`, Accept: 'application/json' },
-      })
-      if (pr.ok) {
-        const pd = await pr.json() as any
-        const list: any[] = Array.isArray(pd) ? pd : (pd.data || pd.domains || [])
-        for (const d of list) {
-          const sid = d.subscription_id || d.billing?.subscription_id
-          const name = d.domain || d.name
-          if (sid && name) subToDomain.set(sid, name)
-        }
-      }
-    } catch { /* keep going */ }
-
-    // Walk orders/items as a backup — orders carry items with domain info
-    let ordersDebug: any = null
-    if (subToDomain.size === 0) {
-      try {
-        const or = await fetch('https://developers.hostinger.com/api/billing/v1/orders', {
-          headers: { Authorization: `Bearer ${tok}`, Accept: 'application/json' },
-        })
-        if (or.ok) {
-          const od = await or.json() as any
-          const orders: any[] = Array.isArray(od) ? od : (od.data || od.orders || [])
-          ordersDebug = orders.slice(0, 2).map(o => ({ keys: Object.keys(o), sample: o }))
-          for (const ord of orders) {
-            const items: any[] = ord.items || ord.line_items || []
-            for (const it of items) {
-              const sid = it.subscription_id || ord.subscription_id
-              const dom = it.domain || it.metadata?.domain || it.name
-              if (sid && typeof dom === 'string' && dom.includes('.')) {
-                subToDomain.set(sid, dom)
-              }
-            }
-          }
-        }
-      } catch { /* keep going */ }
-    }
-
-    // Attach _domain to each sub
-    const enriched = subs.map((s: any) => ({ ...s, _domain: subToDomain.get(s.id) || null }))
-
-    const ours = enriched.filter((s: any) => {
-      const dom = (s._domain || '').toLowerCase()
-      return PROJECT_DOMAIN_TAGS.some(t => dom.includes(t))
-    })
+    const ours = allowIds.size > 0
+      ? subs.filter(s => allowIds.has(s.id))
+      : subs.filter(s => s.next_billing_at)
 
     if (ours.length === 0) {
-      const debug = enriched.map((s: any) => ({
-        id: s.id, name: s.name, renewal_price: s.renewal_price,
-        next_billing_at: s.next_billing_at, _domain: s._domain,
+      const list = subs.map((s: any) => ({
+        id: s.id, name: s.name, price_cents: s.renewal_price,
+        next_billing_at: s.next_billing_at,
       }))
       return [{
         service: 'Hostinger',
-        status: 'no_data',
+        status: 'needs_token',
         monthly_sar: null,
-        usage: { total_subs: subs.length, portfolio_size: subToDomain.size, debug, ordersDebug } as any,
-        note: subs.length
-          ? `${subs.length} اشتراك بالحساب — domains/portfolio أعطى ${subToDomain.size} ربط (لم يطابق)`
-          : 'لم تُرجع API أي اشتراكات',
+        usage: { total_subs: subs.length, subscriptions: list } as any,
+        note: 'حدّد اشتراكات هذا المشروع عبر env var HOSTINGER_SUB_IDS',
+        setup_hint: `أضف على Vercel: HOSTINGER_SUB_IDS=${subs.map(s => s.id).join(',')} ثم احذف ID غير مرتبط بـ aknafalqurba ثم Redeploy.`,
       }]
     }
 
     return ours.map((s: any) => {
-      const name      = s.name || s.title || s.product_name || s.item_name || 'اشتراك Hostinger'
-      const domain    = s.domain || s.related_domain || s.metadata?.domain || ''
-      const priceUSD  = Number(s.renewal_price ?? s.next_billing_amount ?? s.price ?? s.amount ?? 0)
-      const taxUSD    = Number(s.taxes_amount ?? s.tax ?? s.taxes_and_fees ?? 0)
-      const period    = (s.billing_period || s.period_unit || 'year').toString().toLowerCase()
-      const expires   = s.expires_at || s.next_billing_at || s.renew_at
-      const totalUSD  = priceUSD + taxUSD
-      const monthsInPeriod = period.startsWith('month') ? 1 : 12
-      const monthlySAR = Math.round((totalUSD / monthsInPeriod) * SAR_PER_USD * 100) / 100
+      const name = s.name || 'اشتراك Hostinger'
+      // Hostinger returns prices in cents (e.g. 708 = $7.08)
+      const priceUSD = Number(s.renewal_price || 0) / 100
+      const periodUnit = (s.billing_period_unit || 'year').toString().toLowerCase()
+      const periodCount = Number(s.billing_period || 1)
+      const months = periodUnit.startsWith('year') ? periodCount * 12 : periodCount
+      const monthlySAR = Math.round((priceUSD / months) * SAR_PER_USD * 100) / 100
+      const expires = s.next_billing_at || s.expires_at
 
       return {
-        service: domain ? `${name} (${domain})` : name,
+        service: name,
         status: 'ok',
         monthly_sar: monthlySAR,
         usage: {
-          renewal_total_usd: Math.round(totalUSD * 100) / 100,
-          period,
-          expires_at: expires || null,
+          renewal_usd: Math.round(priceUSD * 100) / 100,
+          billing_period: `${periodCount} ${periodUnit}`,
+          next_billing_at: expires || null,
+          subscription_id: s.id,
         },
-        note: `${totalUSD ? `$${totalUSD.toFixed(2)}/${period.startsWith('year') ? 'سنة' : 'شهر'}` : 'مجاني'}${expires ? ` — يجدّد ${String(expires).slice(0, 10)}` : ''}`,
+        note: `$${priceUSD.toFixed(2)} كل ${periodCount} ${periodUnit === 'year' ? 'سنة' : 'شهر'}${expires ? ` — يجدّد ${String(expires).slice(0, 10)}` : ''}`,
       } as ServiceResult
     })
   } catch (e: any) {
