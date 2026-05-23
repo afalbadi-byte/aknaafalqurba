@@ -50,11 +50,12 @@ const SERVICE_LABEL: Record<string, string> = {
 }
 
 export default function PlatformCostsPage() {
-  const [costs,   setCosts]   = useState<Cost[]>([])
-  const [usage,   setUsage]   = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const [costs,    setCosts]    = useState<Cost[]>([])
+  const [usage,    setUsage]    = useState<any>(null)
+  const [external, setExternal] = useState<any>(null)
+  const [loading,  setLoading]  = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const [error,   setError]   = useState('')
+  const [error,    setError]    = useState('')
 
   const [editId,  setEditId]  = useState<number | null>(null)
   const [draft,   setDraft]   = useState<Partial<Cost>>({})
@@ -71,12 +72,14 @@ export default function PlatformCostsPage() {
   async function load() {
     setLoading(true); setError('')
     try {
-      const [costsRes, usageRes] = await Promise.all([
+      const [costsRes, usageRes, externalRes] = await Promise.all([
         api.costs.list(),
         api.costs.usage(),
+        api.costs.external().catch(() => ({ services: [] })),
       ])
       setCosts(costsRes.costs)
       setUsage(usageRes)
+      setExternal(externalRes)
     } catch (e: any) { setError(e.message || 'تعذّر التحميل') }
     finally { setLoading(false) }
   }
@@ -84,8 +87,12 @@ export default function PlatformCostsPage() {
   async function refresh() {
     setRefreshing(true)
     try {
-      const usageRes = await api.costs.usage()
+      const [usageRes, externalRes] = await Promise.all([
+        api.costs.usage(),
+        api.costs.external().catch(() => ({ services: [] })),
+      ])
       setUsage(usageRes)
+      setExternal(externalRes)
     } finally { setRefreshing(false) }
   }
 
@@ -246,14 +253,43 @@ export default function PlatformCostsPage() {
         </>
       )}
 
-      {/* ── Subscription costs section ── */}
+      {/* ── External services — auto-fetched ── */}
+      {external?.services?.length > 0 && (
+        <div>
+          <h2 className="font-bold text-[#1a365d] dark:text-brand-100 text-lg mb-3 flex items-center gap-2">
+            <Activity size={18} className="text-[#c5a059]" /> اشتراكات الخدمات المُهيّأة
+            <span className="text-xs font-normal text-brand-400">(تجلب مباشرة من مزوّدي الخدمة)</span>
+          </h2>
+          <div className="space-y-2">
+            {external.services.map((s: any) => (
+              <ExternalRow key={s.service} svc={s} fmt={fmt} />
+            ))}
+          </div>
+
+          {(() => {
+            const liveTotal = external.services
+              .filter((s: any) => s.status === 'ok' && s.monthly_sar)
+              .reduce((sum: number, s: any) => sum + Number(s.monthly_sar), 0)
+            return liveTotal > 0 ? (
+              <div className="mt-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 rounded-xl px-4 py-3 text-sm flex items-center justify-between">
+                <span className="font-bold">إجمالي الفواتير الفعلية المقروءة هذا الشهر:</span>
+                <span className="font-mono font-black text-lg">{fmt(liveTotal)} ر.س</span>
+              </div>
+            ) : null
+          })()}
+        </div>
+      )}
+
+      {/* ── Manual subscription costs section ── */}
       <div className="border-t-2 border-slate-100 dark:border-brand-700 pt-6">
         <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
           <div>
             <h2 className="font-bold text-[#1a365d] dark:text-brand-100 text-lg flex items-center gap-2">
-              <Wallet size={18} className="text-[#c5a059]" /> الاشتراكات الفعلية
+              <Wallet size={18} className="text-[#c5a059]" /> اشتراكات يدوية إضافية
             </h2>
-            <p className="text-xs text-brand-500 dark:text-brand-400">أدخل القيم من فواتيرك الحقيقية فقط</p>
+            <p className="text-xs text-brand-500 dark:text-brand-400">
+              لخدمات ليس لها API عام (النطاق، باقة الاستضافة الثابتة، إلخ)
+            </p>
           </div>
           <button onClick={() => setAdding(true)}
             className="flex items-center gap-2 bg-[#1a365d] hover:bg-[#c5a059] text-white px-4 py-2 rounded-xl font-bold text-sm transition">
@@ -460,4 +496,79 @@ function UsageCard({ icon: Icon, color, label, value, note }: {
       {note && <p className="text-[10px] text-brand-400 mt-0.5">{note}</p>}
     </div>
   )
+}
+
+function ExternalRow({ svc, fmt }: { svc: any; fmt: (n: number) => string }) {
+  const badge = {
+    ok:           { label: 'متصل ✓',          color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' },
+    needs_token:  { label: 'يحتاج إعداد',     color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' },
+    error:        { label: 'فشل الاتصال',     color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' },
+    no_data:      { label: 'مهيّأ',           color: 'bg-slate-100 text-slate-700 dark:bg-brand-700 dark:text-brand-300' },
+  }[svc.status as 'ok' | 'needs_token' | 'error' | 'no_data'] || { label: '—', color: 'bg-slate-100 text-slate-600' }
+
+  return (
+    <div className="bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-700 rounded-2xl p-4">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <h3 className="font-black text-[#1a365d] dark:text-brand-100">{svc.service}</h3>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${badge.color}`}>{badge.label}</span>
+          </div>
+          <p className="text-xs text-brand-500 dark:text-brand-400">{svc.note}</p>
+
+          {svc.usage && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {Object.entries(svc.usage).map(([k, v]) => (
+                <span key={k} className="text-[11px] bg-slate-50 dark:bg-brand-800 border border-slate-100 dark:border-brand-700 rounded-lg px-2 py-1">
+                  <span className="text-brand-400">{labelize(k)}:</span>{' '}
+                  <span className="font-mono font-bold text-brand-800 dark:text-brand-100">{formatVal(k, v)}</span>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {svc.setup_hint && svc.status === 'needs_token' && (
+            <p className="mt-2 text-[11px] bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-3 py-1.5 text-amber-700 dark:text-amber-300">
+              <strong>كيف تربطها:</strong> {svc.setup_hint}
+            </p>
+          )}
+          {svc.error && (
+            <p className="mt-2 text-[11px] text-red-600 dark:text-red-400 font-mono">{svc.error}</p>
+          )}
+        </div>
+
+        <div className="text-left shrink-0">
+          {svc.monthly_sar != null ? (
+            <>
+              <p className="text-[10px] text-brand-400">شهري (ر.س)</p>
+              <p className="text-2xl font-black text-[#1a365d] dark:text-brand-100">{fmt(Number(svc.monthly_sar))}</p>
+            </>
+          ) : (
+            <span className="text-xs text-brand-300">—</span>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function labelize(k: string): string {
+  const map: Record<string, string> = {
+    payments_this_month:  'دفعات هذا الشهر',
+    amount_processed_sar: 'المبلغ المعالج (ر.س)',
+    blobs:                'ملف',
+    total_bytes:          'إجمالي البايتات',
+    total_gb:             'إجمالي (GB)',
+  }
+  return map[k] || k
+}
+function formatVal(k: string, v: any): string {
+  if (k === 'total_bytes') {
+    const n = Number(v)
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
+    if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(2)} MB`
+    return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`
+  }
+  if (typeof v === 'number') return v.toLocaleString('ar-SA')
+  return String(v)
 }
