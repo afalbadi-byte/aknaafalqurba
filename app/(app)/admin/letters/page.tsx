@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
+import 'react-quill-new/dist/quill.snow.css'
 import { api } from '@/lib/api-client'
 import {
   FilePen, Printer, Loader2, Trash2, BookOpen, Sparkles, Stamp,
@@ -45,10 +46,10 @@ const PRINT_CSS = `
 
   /* ── Metadata values — overlaid on pre-printed header labels ── */
   /* Positions calibrated to match الرقم / التاريخ / الموضوع lines */
-  .mv { position: absolute; direction: rtl; text-align: right; color: #1a365d; font-weight: 600; font-size: 11px; left: 14mm; width: 34mm; }
-  .mv-ref  { top: 14.5mm; }
-  .mv-date { top: 21.2mm; }
-  .mv-subj { top: 27.8mm; }
+  .mv { position: absolute; direction: rtl; text-align: right; color: #1a365d; font-weight: 600; font-size: 11px; left: 10mm; width: 48mm; }
+  .mv-ref  { top: 22mm; }
+  .mv-date { top: 26.5mm; }
+  .mv-subj { top: 30.5mm; }
 
   /* ── Letter body — safe zone between header and footer ── */
   .lh-body {
@@ -171,10 +172,9 @@ const CATEGORIES = [
 
 const QUILL_MODULES = {
   toolbar: [
-    [{ header: [1, 2, 3, false] }],
     ['bold', 'italic', 'underline'],
     [{ list: 'ordered' }, { list: 'bullet' }],
-    [{ align: [] }],
+    [{ indent: '-1' }, { indent: '+1' }],
     ['clean'],
   ],
 }
@@ -304,10 +304,31 @@ export default function LetterGenerator() {
   return (
     <>
       <style>{`
-        .ql-toolbar { border-radius: 0.75rem 0.75rem 0 0 !important; border-color: #e2e8f0 !important; background: #f8fafc; }
-        .ql-container { border-radius: 0 0 0.75rem 0.75rem !important; border-color: #e2e8f0 !important; font-family: 'Cairo', sans-serif !important; }
-        .ql-editor { min-height: 150px; font-size: 13.5px; direction: rtl; text-align: right; line-height: 2; }
+        /* Quill base overrides */
+        .ql-toolbar.ql-snow {
+          border-radius: 0.75rem 0.75rem 0 0 !important;
+          border-color: #e2e8f0 !important;
+          background: #f8fafc;
+          direction: ltr;
+        }
+        .ql-container.ql-snow {
+          border-radius: 0 0 0.75rem 0.75rem !important;
+          border-color: #e2e8f0 !important;
+          font-family: 'Cairo', sans-serif !important;
+        }
+        .ql-editor {
+          min-height: 150px;
+          font-size: 13.5px;
+          direction: rtl;
+          text-align: right;
+          line-height: 2;
+          font-family: 'Cairo', sans-serif !important;
+        }
         .ql-editor.ql-blank::before { right: 12px; left: unset; color: #94a3b8; font-style: normal; }
+        /* Fix Quill icon sizes */
+        .ql-toolbar .ql-formats button { width: 24px; height: 24px; }
+        .ql-toolbar .ql-formats button svg { width: 16px; height: 16px; }
+        /* Letter preview styles */
         .lp p { margin-bottom: 0.65rem; }
         .lp li { margin-bottom: 0.35rem; }
         .lp ol, .lp ul { padding-right: 1.4rem; }
@@ -496,17 +517,17 @@ export default function LetterGenerator() {
             }}
           >
             {/* ── Metadata values ── calibrated to match pre-printed labels */}
-            <div className="absolute" style={{ top: '14.5mm', left: '14mm', width: '34mm' }}>
+            <div className="absolute" style={{ top: '22mm', left: '10mm', width: '48mm' }}>
               <span className="block text-right text-[11px] font-semibold text-[#1a365d] leading-none">
                 {data.reference || ''}
               </span>
             </div>
-            <div className="absolute" style={{ top: '21.2mm', left: '14mm', width: '34mm' }}>
+            <div className="absolute" style={{ top: '26.5mm', left: '10mm', width: '48mm' }}>
               <span className="block text-right text-[11px] font-semibold text-[#1a365d] leading-none">
                 {data.date || ''}
               </span>
             </div>
-            <div className="absolute" style={{ top: '27.8mm', left: '14mm', width: '34mm' }}>
+            <div className="absolute" style={{ top: '30.5mm', left: '10mm', width: '48mm' }}>
               <span className="block text-right text-[11px] font-semibold text-[#1a365d] leading-none truncate">
                 {data.subject || ''}
               </span>
