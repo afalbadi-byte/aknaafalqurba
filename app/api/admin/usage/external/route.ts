@@ -31,7 +31,7 @@ export async function GET() {
   results.push(readResend())
   results.push(readAnthropic())
   results.push(await readVercelPlatform())
-  results.push(readNeon())
+  results.push(await readNeon())
   results.push(readDomain())
 
   return jsonOK({ services: results, sar_per_usd: SAR_PER_USD, generated_at: new Date().toISOString() })
@@ -225,9 +225,10 @@ async function readVercelPlatform(): Promise<ServiceResult> {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Neon Postgres
+   Neon Postgres — read project usage (storage + compute_seconds) and
+   current organization plan via Neon REST API v2.
 ───────────────────────────────────────────────────────────── */
-function readNeon(): ServiceResult {
+async function readNeon(): Promise<ServiceResult> {
   const tok = process.env.NEON_API_KEY
   if (!tok) {
     return {
@@ -236,15 +237,71 @@ function readNeon(): ServiceResult {
       monthly_sar: null,
       usage: null,
       note: 'لجلب فاتورة Neon تحتاج Neon API key',
-      setup_hint: 'console.neon.tech ← Account Settings ← API Keys، أضفه باسم NEON_API_KEY.',
+      setup_hint: 'console.neon.tech/app/settings/api-keys ← Create new API key. أضفه في Vercel باسم NEON_API_KEY (Production + Preview) ثم Redeploy.',
     }
   }
-  return {
-    service: 'قاعدة البيانات Neon',
-    status: 'no_data',
-    monthly_sar: null,
-    usage: null,
-    note: 'Token موجود — قراءة الفاتورة قيد التطوير',
+  try {
+    const headers = { Authorization: `Bearer ${tok}` }
+
+    // 1) Find the project this DB belongs to (use env hint or fetch list)
+    let projectId = process.env.NEON_PROJECT_ID
+    if (!projectId) {
+      const r = await fetch('https://console.neon.tech/api/v2/projects', { headers })
+      if (!r.ok) return svcError('قاعدة البيانات Neon', `HTTP ${r.status} على /projects`)
+      const data = await r.json() as any
+      projectId = data.projects?.[0]?.id
+      if (!projectId) return svcError('قاعدة البيانات Neon', 'لم يُعثر على مشاريع في الحساب')
+    }
+
+    // 2) Project details — contains current plan + size limits
+    const projR = await fetch(`https://console.neon.tech/api/v2/projects/${projectId}`, { headers })
+    if (!projR.ok) return svcError('قاعدة البيانات Neon', `HTTP ${projR.status} على /projects/${projectId}`)
+    const projData = await projR.json() as any
+    const proj = projData.project || projData
+    const planLabel = (proj?.pg_settings?.plan || proj?.plan_id || proj?.org_id ? 'launch' : 'free').toString()
+    const storageBytes = Number(proj?.synthetic_storage_size ?? proj?.data_storage_bytes_hour ?? 0)
+
+    // 3) Consumption history for the current month
+    const since = new Date(); since.setDate(1); since.setHours(0,0,0,0)
+    const consumeR = await fetch(
+      `https://console.neon.tech/api/v2/consumption_history/projects?project_ids=${projectId}&from=${since.toISOString()}&to=${new Date().toISOString()}&granularity=monthly`,
+      { headers },
+    )
+    let computeHours = 0
+    let writtenBytes = 0
+    let dataStorageGBHours = 0
+    if (consumeR.ok) {
+      const c = await consumeR.json() as any
+      const period = c.projects?.[0]?.periods?.[0]?.consumption
+      if (period) {
+        computeHours       = (period.active_time_seconds || 0) / 3600
+        writtenBytes       = period.written_data_bytes || 0
+        dataStorageGBHours = (period.data_storage_bytes_hour || 0) / (1024 ** 3)
+      }
+    }
+
+    // Neon Launch pricing reference (approx): $19/mo base + overages.
+    // Free plan: $0. We expose plan + raw usage; admin can fine-tune.
+    const planPriceUSD: Record<string, number> = { free: 0, launch: 19, scale: 69, business: 700 }
+    const baseUSD = planPriceUSD[planLabel.toLowerCase()] ?? 0
+
+    return {
+      service: 'قاعدة البيانات Neon',
+      status: 'ok',
+      monthly_sar: Math.round(baseUSD * SAR_PER_USD * 100) / 100,
+      usage: {
+        plan: planLabel,
+        storage_mb: Math.round((storageBytes / (1024 * 1024)) * 100) / 100 || undefined,
+        compute_hours_this_month: Math.round(computeHours * 100) / 100,
+        written_mb_this_month: Math.round((writtenBytes / (1024 * 1024)) * 100) / 100,
+        storage_gb_hours_this_month: Math.round(dataStorageGBHours * 100) / 100,
+      },
+      note: baseUSD === 0
+        ? `الباقة: ${planLabel} (مجانية) — تنشأ رسوم استخدام فوق حدود الباقة`
+        : `الباقة: ${planLabel} — قاعدة الاشتراك ${baseUSD}$/شهر + استخدام إضافي`,
+    }
+  } catch (e: any) {
+    return svcError('قاعدة البيانات Neon', e.message || String(e))
   }
 }
 
