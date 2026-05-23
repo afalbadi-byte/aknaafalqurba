@@ -54,7 +54,7 @@ const PAGE_CSS = `
     overflow: hidden;
   }
 
-  /* Metadata overlays — LEFT of label colons; only page 1 */
+  /* Metadata overlays — LEFT of label colons; REPEAT on EVERY page */
   /* Values sit over the kashida (ـــ) inside the label row, so they */
   /* need a solid background to stand out from the kashida stroke.   */
   .mv {
@@ -62,14 +62,14 @@ const PAGE_CSS = `
     color: #1a365d; font-weight: 700; font-size: 11px;
     left: 6mm; width: 48mm;
     z-index: 10;
-    background: rgba(255,255,255,0.92);
+    background: rgba(255,255,255,0.94);
     padding: 0.5mm 1.5mm;
     border-radius: 1mm;
     line-height: 1;
   }
-  .mv-ref  { top: 17mm; }
-  .mv-date { top: 22.7mm; }
-  .mv-subj { top: 28.4mm; }
+  .mv-ref  { top: 17.6mm; }
+  .mv-date { top: 23.2mm; }
+  .mv-subj { top: 28.8mm; }
 
   /* Content area — inside top/bottom safe zones */
   .page-content {
@@ -113,7 +113,7 @@ const PAGE_CSS = `
     display: flex; justify-content: space-between; align-items: flex-end;
     direction: ltr; min-height: ${PAGE.SIG}mm;
   }
-  .stamp-img  { width: 220px; object-fit: contain; opacity: 0.9; }
+  .stamp-img  { width: 320px; object-fit: contain; opacity: 0.92; }
   .sign-block { text-align: center; min-width: 175px; direction: rtl; }
   .sig-img    { display: block; max-height: 50px; max-width: 160px; object-fit: contain; margin: 0 auto 2px; }
   .sign-title { font-weight: 700; color: #1a365d; font-size: 12px; margin: 0 0 4px; }
@@ -122,16 +122,14 @@ const PAGE_CSS = `
     border-top: 1.5px solid #cbd5e1; padding-top: 6px; margin: 0;
   }
 
-  /* Page number — above the footer banner */
+  /* Page number — centered INSIDE the footer banner (middle empty area) */
   .page-num {
     position: absolute;
-    bottom: ${PAGE.BOTTOM - 6}mm;
+    bottom: 13mm;
     left: 0; right: 0;
     text-align: center;
     font-size: 9.5px; font-weight: 700;
     color: #1a365d; letter-spacing: 0.5px;
-    background: rgba(255,255,255,0.85);
-    padding: 1mm 0;
     z-index: 5;
   }
 
@@ -224,11 +222,12 @@ function pageHTML(opts: {
   const isFirst = pageIndex === 0
   const isLast  = pageIndex === totalPages - 1
 
-  const overlays = isFirst ? `
+  // Header values (الرقم/التاريخ/الموضوع) repeat on EVERY page
+  const overlays = `
     ${data.reference ? `<span class="mv mv-ref">${escapeHTML(data.reference)}</span>`   : ''}
     ${data.date      ? `<span class="mv mv-date">${escapeHTML(data.date)}</span>`       : ''}
     ${data.subject   ? `<span class="mv mv-subj">${escapeHTML(data.subject)}</span>`    : ''}
-  ` : ''
+  `
 
   const intro = isFirst ? `
     <div class="recipient">
