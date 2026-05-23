@@ -89,6 +89,12 @@ export const api = {
     seed:   ()             => post('/api/letter-templates/seed'),
     remove: (id: number)   => del(`/api/letter-templates/${id}`),
   },
+  costs: {
+    list:   ()                          => get('/api/admin/costs'),
+    create: (data: object)              => post('/api/admin/costs', data),
+    update: (id: number, data: object)  => patch(`/api/admin/costs/${id}`, data),
+    remove: (id: number)                => del(`/api/admin/costs/${id}`),
+  },
   letters: {
     list:    (box: 'outgoing' | 'incoming' | 'all' = 'outgoing') => get(`/api/letters?box=${box}`),
     get:     (id: number)                => get(`/api/letters/${id}`),

@@ -169,6 +169,37 @@ const MIGRATIONS: { name: string; up: string }[] = [
     up: `ALTER TABLE members ADD COLUMN IF NOT EXISTS signature TEXT;`,
   },
   {
+    name: '023-platform-costs',
+    up: `
+      CREATE TABLE IF NOT EXISTS platform_costs (
+        id            SERIAL PRIMARY KEY,
+        service_name  VARCHAR(120) NOT NULL,
+        plan          VARCHAR(120),
+        category      VARCHAR(40)  NOT NULL DEFAULT 'other',
+        monthly_cost  NUMERIC(10,2) NOT NULL DEFAULT 0,
+        currency      CHAR(3) NOT NULL DEFAULT 'SAR',
+        notes         TEXT,
+        is_active     BOOLEAN NOT NULL DEFAULT TRUE,
+        sort_order    INT NOT NULL DEFAULT 0,
+        created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_platform_costs_active ON platform_costs(is_active);
+
+      INSERT INTO platform_costs (service_name, plan, category, monthly_cost, notes, sort_order)
+      SELECT * FROM (VALUES
+        ('استضافة Vercel',               'Hobby (مجانية)',              'hosting',  0,    '100GB تدفق شهرياً + serverless مجانية حتى حد معين، كافية لحجم الاستخدام الحالي', 10),
+        ('قاعدة البيانات (Neon / Vercel Postgres)', 'Free',           'database', 0,    '0.5GB تخزين + ساعة حساب مجانية، تكفي للعدد الحالي من الأعضاء', 20),
+        ('بريد Resend',                  'Free',                        'email',    0,    '3000 رسالة/شهر و100 رسالة/يوم — كافية لإشعارات تفعيل الحساب', 30),
+        ('Anthropic API (Claude)',       'Pay-as-go',                   'ai',       19,   'نحو 5 دولار/شهر للتحقق الذكي من بطاقات الهوية واستخراج البيانات', 40),
+        ('Vercel Blob (تخزين الملفات)',  'حسب الاستخدام',               'storage',  11,   '0.15$ لكل GB تخزين + 0.03$ لكل GB تنزيل — للصور والوثائق الكبيرة', 50),
+        ('بوابة الدفع Moyasar',          '2.85% + 1 ر.س لكل عملية',     'payment',  0,    'لا توجد رسوم شهرية ثابتة، رسوم متغيرة مع كل معاملة فقط', 60),
+        ('نطاق aknaafalqurba.com',       'سنوي ~60 ر.س',                'domain',   5,    'تجديد سنوي للنطاق (دومين .com)', 70)
+      ) AS v(service_name, plan, category, monthly_cost, notes, sort_order)
+      WHERE NOT EXISTS (SELECT 1 FROM platform_costs LIMIT 1);
+    `,
+  },
+  {
     name: '022-letter-recipients',
     up: `
       ALTER TABLE letters ADD COLUMN IF NOT EXISTS drafter_signature TEXT;
@@ -349,6 +380,13 @@ export async function GET() {
           const [tbl] = await sql`
             SELECT table_name FROM information_schema.tables
             WHERE table_name = 'letter_recipients'
+          `
+          return { name: m.name, status: tbl ? 'applied' : 'pending' }
+        }
+        if (m.name.startsWith('023')) {
+          const [tbl] = await sql`
+            SELECT table_name FROM information_schema.tables
+            WHERE table_name = 'platform_costs'
           `
           return { name: m.name, status: tbl ? 'applied' : 'pending' }
         }

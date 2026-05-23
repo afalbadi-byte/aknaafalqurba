@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, User, CreditCard, FileHeart, Newspaper,
   Users, Banknote, Settings as SettingsIcon, Menu, X, LogOut, Bell, Shield,
-  Sun, Moon, Monitor, Database, ClipboardList, ShieldCheck, Info, FilePen,
+  Sun, Moon, Monitor, Database, ClipboardList, ShieldCheck, Info, FilePen, Wallet,
 } from 'lucide-react'
 import Logo from './logo'
 import { api } from '@/lib/api-client'
@@ -38,6 +38,7 @@ const ADMIN_NAV = [
   { to: '/admin/reports',   label: 'التقارير المالية', icon: LayoutDashboard },
   { to: '/admin/settings',  label: 'الإعدادات',       icon: SettingsIcon },
   { to: '/admin/roles',     label: 'الصلاحيات',        icon: ShieldCheck },
+  { to: '/admin/costs',     label: 'تكاليف التشغيل',   icon: Wallet,           adminOnly: true },
   { to: '/admin/migrate',   label: 'مهاجرات DB',       icon: Database },
   { to: '/admin/logs',      label: 'سجل النشاط',       icon: ClipboardList },
 ]
@@ -109,8 +110,10 @@ export default function AppShell({ user, children }: { user: User; children: Rea
   const ThemeIcon = THEME_ICONS[theme]
   const themeLabel: Record<Theme, string> = { light: 'فاتح', dark: 'داكن', system: 'تلقائي' }
 
+  const isTopAdmin = user.role === 'admin' || user.role === 'president'
+  const filteredAdminNav = ADMIN_NAV.filter(it => !it.adminOnly || isTopAdmin)
   const items = isCommittee
-    ? [...MEMBER_NAV, { separator: true } as any, ...ADMIN_NAV]
+    ? [...MEMBER_NAV, { separator: true } as any, ...filteredAdminNav]
     : MEMBER_NAV
 
   return (
