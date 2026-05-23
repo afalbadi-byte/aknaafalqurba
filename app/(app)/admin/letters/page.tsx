@@ -21,8 +21,8 @@ import {
 ───────────────────────────────────────────────────────────── */
 const PAGE = {
   W: 210, H: 297,
-  TOP: 42,        // top safe zone (header letterhead clearance)
-  BOTTOM: 32,     // bottom safe zone (footer letterhead clearance)
+  TOP: 50,        // top safe zone — "السادة" sits well below the letterhead header
+  BOTTOM: 42,     // bottom safe zone — page number sits above the footer banner
   SIDE: 18,       // side margins
   PAGE_NUM: 6,    // page-number row height
   SIG: 34,        // signature+stamp row height
@@ -55,14 +55,21 @@ const PAGE_CSS = `
   }
 
   /* Metadata overlays — LEFT of label colons; only page 1 */
+  /* Values sit over the kashida (ـــ) inside the label row, so they */
+  /* need a solid background to stand out from the kashida stroke.   */
   .mv {
     position: absolute; direction: rtl; text-align: right;
     color: #1a365d; font-weight: 700; font-size: 11px;
-    left: 8mm; width: 48mm;
+    left: 6mm; width: 48mm;
+    z-index: 10;
+    background: rgba(255,255,255,0.92);
+    padding: 0.5mm 1.5mm;
+    border-radius: 1mm;
+    line-height: 1;
   }
-  .mv-ref  { top: 17.5mm; }
-  .mv-date { top: 22.5mm; }
-  .mv-subj { top: 27.5mm; }
+  .mv-ref  { top: 17mm; }
+  .mv-date { top: 22.7mm; }
+  .mv-subj { top: 28.4mm; }
 
   /* Content area — inside top/bottom safe zones */
   .page-content {
@@ -106,7 +113,7 @@ const PAGE_CSS = `
     display: flex; justify-content: space-between; align-items: flex-end;
     direction: ltr; min-height: ${PAGE.SIG}mm;
   }
-  .stamp-img  { width: 170px; object-fit: contain; opacity: 0.9; }
+  .stamp-img  { width: 220px; object-fit: contain; opacity: 0.9; }
   .sign-block { text-align: center; min-width: 175px; direction: rtl; }
   .sig-img    { display: block; max-height: 50px; max-width: 160px; object-fit: contain; margin: 0 auto 2px; }
   .sign-title { font-weight: 700; color: #1a365d; font-size: 12px; margin: 0 0 4px; }
@@ -115,14 +122,17 @@ const PAGE_CSS = `
     border-top: 1.5px solid #cbd5e1; padding-top: 6px; margin: 0;
   }
 
-  /* Page number — bottom center of each page */
+  /* Page number — above the footer banner */
   .page-num {
     position: absolute;
-    bottom: ${PAGE.BOTTOM + 1}mm;
+    bottom: ${PAGE.BOTTOM - 6}mm;
     left: 0; right: 0;
     text-align: center;
     font-size: 9.5px; font-weight: 700;
     color: #1a365d; letter-spacing: 0.5px;
+    background: rgba(255,255,255,0.85);
+    padding: 1mm 0;
+    z-index: 5;
   }
 
   /* Empty content placeholder */
