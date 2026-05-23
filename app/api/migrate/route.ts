@@ -144,6 +144,31 @@ const MIGRATIONS: { name: string; up: string }[] = [
     `,
   },
   {
+    name: '020-letters',
+    up: `
+      CREATE TABLE IF NOT EXISTS letters (
+        id          SERIAL PRIMARY KEY,
+        reference   VARCHAR(100),
+        date        VARCHAR(50),
+        recipient   VARCHAR(200),
+        subject     VARCHAR(500),
+        body        TEXT NOT NULL DEFAULT '',
+        sign_name   VARCHAR(150),
+        sign_title  VARCHAR(150),
+        show_stamp  BOOLEAN NOT NULL DEFAULT FALSE,
+        created_by  INT REFERENCES members(id) ON DELETE SET NULL,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_letters_created_by ON letters(created_by);
+      CREATE INDEX IF NOT EXISTS idx_letters_created_at ON letters(created_at DESC);
+    `,
+  },
+  {
+    name: '021-member-signature',
+    up: `ALTER TABLE members ADD COLUMN IF NOT EXISTS signature TEXT;`,
+  },
+  {
     name: '008-activity-logs',
     up: `
       CREATE TABLE IF NOT EXISTS activity_logs (
@@ -283,6 +308,20 @@ export async function GET() {
             WHERE table_name = 'activity_logs'
           `
           return { name: m.name, status: tbl ? 'applied' : 'pending' }
+        }
+        if (m.name.startsWith('020')) {
+          const [tbl] = await sql`
+            SELECT table_name FROM information_schema.tables
+            WHERE table_name = 'letters'
+          `
+          return { name: m.name, status: tbl ? 'applied' : 'pending' }
+        }
+        if (m.name.startsWith('021')) {
+          const [col] = await sql`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'members' AND column_name = 'signature'
+          `
+          return { name: m.name, status: col ? 'applied' : 'pending' }
         }
         return { name: m.name, status: 'unknown' }
       } catch {

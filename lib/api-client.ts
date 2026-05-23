@@ -59,8 +59,10 @@ export const api = {
     emailChange:  (email: string)   => post('/api/members/email-change', { email }),
     emailConfirm: (code: string)    => post('/api/members/email-confirm', { code }),
     setTheme:     (theme: string)   => post('/api/members/theme', { theme }),
-    avatarUpload: (fd: FormData)    => post('/api/members/avatar', fd),
-    avatarRemove: ()                => del('/api/members/avatar'),
+    avatarUpload:     (fd: FormData) => post('/api/members/avatar', fd),
+    avatarRemove:     ()             => del('/api/members/avatar'),
+    signatureUpload:  (fd: FormData) => post('/api/members/signature', fd),
+    signatureRemove:  ()             => del('/api/members/signature'),
     idDocument:   (id: number)      => get(`/api/members/${id}/id-document`),
     familyRegisterExtract: (document: string) =>
       post('/api/members/family-register', { document }),
@@ -85,6 +87,12 @@ export const api = {
     create: (data: object) => post('/api/letter-templates', data),
     seed:   ()             => post('/api/letter-templates/seed'),
     remove: (id: number)   => del(`/api/letter-templates/${id}`),
+  },
+  letters: {
+    list:   ()             => get('/api/letters'),
+    create: (data: object) => post('/api/letters', data),
+    update: (id: number, data: object) => patch(`/api/letters/${id}`, data),
+    remove: (id: number)   => del(`/api/letters/${id}`),
   },
   expenses: {
     list:   ()                      => get('/api/expenses'),

@@ -30,6 +30,11 @@ export default function Profile() {
   const [avatarBusy, setAvatarBusy] = useState(false)
   const [avatarMsg,  setAvatarMsg]  = useState<any>(null)
 
+  // Signature
+  const sigRef = useRef<HTMLInputElement>(null)
+  const [sigBusy, setSigBusy] = useState(false)
+  const [sigMsg,  setSigMsg]  = useState<any>(null)
+
   useEffect(() => {
     api.auth.me().then(r => {
       setUser(r.user)
@@ -113,6 +118,31 @@ export default function Profile() {
       setAvatarMsg({ ok: true, text: 'تم حذف الصورة' })
     } catch (err: any) { setAvatarMsg({ ok: false, text: err.message }) }
     finally { setAvatarBusy(false) }
+  }
+
+  // ----- Signature -----
+  async function handleSignatureChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setSigBusy(true); setSigMsg(null)
+    try {
+      const fd = new FormData(); fd.append('signature', file, file.name)
+      const r  = await api.members.signatureUpload(fd)
+      setUser((u: any) => ({ ...u, signature: r.signature }))
+      setSigMsg({ ok: true, text: 'تم حفظ التوقيع' })
+    } catch (err: any) { setSigMsg({ ok: false, text: err.message }) }
+    finally { setSigBusy(false); if (sigRef.current) sigRef.current.value = '' }
+  }
+
+  async function removeSignature() {
+    if (!confirm('حذف صورة التوقيع؟')) return
+    setSigBusy(true); setSigMsg(null)
+    try {
+      await api.members.signatureRemove()
+      setUser((u: any) => ({ ...u, signature: null }))
+      setSigMsg({ ok: true, text: 'تم حذف التوقيع' })
+    } catch (err: any) { setSigMsg({ ok: false, text: err.message }) }
+    finally { setSigBusy(false) }
   }
 
   // ----- Email verification flow (existing unverified email) -----
@@ -392,6 +422,41 @@ export default function Profile() {
                 </div>
               </>
             )}
+          </div>
+
+          {/* Signature card */}
+          <div className="card card-body">
+            <h3 className="font-bold text-brand-900 dark:text-brand-50 text-sm mb-3 flex items-center gap-2">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-[#1a365d] dark:text-[#c5a059]">
+                <path d="M15 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-5-5z"/><path d="M14 3v5h5"/>
+              </svg>
+              التوقيع الرسمي
+            </h3>
+            <p className="text-xs text-brand-400 dark:text-brand-500 mb-3">
+              يظهر في الخطابات الرسمية أسفل اسمك. يُفضّل خلفية بيضاء أو شفافة.
+            </p>
+            {user.signature && (
+              <div className="mb-3 border border-slate-200 dark:border-brand-700 rounded-xl p-3 bg-slate-50 dark:bg-brand-800 flex items-center justify-center">
+                <img src={user.signature} alt="التوقيع" className="max-h-16 max-w-full object-contain" />
+              </div>
+            )}
+            <input ref={sigRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleSignatureChange} />
+            {sigMsg && (
+              <div className={`mb-2 text-xs rounded px-3 py-2 ${sigMsg.ok ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'}`}>
+                {sigMsg.text}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <button className="btn-secondary flex-1 text-xs" onClick={() => sigRef.current?.click()} disabled={sigBusy}>
+                {sigBusy ? <Loader2 className="animate-spin" size={13} /> : <Camera size={13} />}
+                {user.signature ? 'تغيير التوقيع' : 'رفع التوقيع'}
+              </button>
+              {user.signature && (
+                <button className="btn-ghost !p-2 text-red-500 hover:text-red-600 dark:text-red-400" onClick={removeSignature} disabled={sigBusy} title="حذف التوقيع">
+                  <XIcon size={16} />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Email verification (only when unverified) */}
