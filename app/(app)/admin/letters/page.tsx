@@ -304,14 +304,67 @@ ${pagesHtml}
 </body></html>`
 }
 
-function printLetter(html: string) {
-  const w = window.open('', '_blank', 'width=860,height=1180')
-  if (!w) { alert('يرجى السماح بفتح النوافذ المنبثقة'); return }
-  w.document.write(html); w.document.close()
-  w.onload = () => {
-    const go = () => { w.focus(); w.print() }
-    const fonts = (w.document as any).fonts
-    fonts?.ready ? fonts.ready.then(() => setTimeout(go, 200)) : setTimeout(go, 700)
+/**
+ * Generate the letter as a PDF directly in the browser using
+ * html2canvas + jsPDF. Bypasses the OS print dialog so output is
+ * identical on desktop AND mobile — the OS print dialog is unreliable
+ * on iOS Safari and varies across Android browsers.
+ *
+ * Each .a4-page is captured separately at 210×297 mm so we get crisp
+ * page dimensions regardless of host viewport.
+ */
+async function generateLetterPDF(html: string, filename: string) {
+  const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+    import('jspdf'),
+    import('html2canvas'),
+  ])
+
+  // Render off-screen so styles + fonts + bg image are isolated
+  const iframe = document.createElement('iframe')
+  iframe.style.cssText = 'position:fixed;left:-10000px;top:0;width:210mm;height:300mm;border:0;'
+  document.body.appendChild(iframe)
+
+  try {
+    const doc = iframe.contentDocument!
+    doc.open(); doc.write(html); doc.close()
+
+    // Wait for fonts AND every image (letterhead, signature, stamp)
+    await new Promise<void>(resolve => {
+      const ready = async () => {
+        const fonts = (doc as any).fonts
+        if (fonts?.ready) try { await fonts.ready } catch {}
+        const imgs = Array.from(doc.images) as HTMLImageElement[]
+        await Promise.all(imgs.map(img =>
+          img.complete && img.naturalHeight > 0
+            ? Promise.resolve()
+            : new Promise(r => { img.onload = img.onerror = () => r(null) })
+        ))
+        setTimeout(resolve, 300)
+      }
+      if (doc.readyState === 'complete') ready()
+      else iframe.addEventListener('load', ready, { once: true })
+    })
+
+    const pages = Array.from(doc.querySelectorAll('.a4-page')) as HTMLElement[]
+    if (pages.length === 0) throw new Error('لا توجد صفحات للتصدير')
+
+    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true })
+    for (let i = 0; i < pages.length; i++) {
+      if (i > 0) pdf.addPage()
+      const canvas = await html2canvas(pages[i], {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        windowWidth: pages[i].offsetWidth,
+        windowHeight: pages[i].offsetHeight,
+      })
+      const imgData = canvas.toDataURL('image/jpeg', 0.95)
+      pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, undefined, 'FAST')
+    }
+    pdf.save(filename)
+  } finally {
+    document.body.removeChild(iframe)
   }
 }
 
@@ -502,9 +555,23 @@ export default function LetterGenerator() {
     } finally { setSeeding(false) }
   }
 
-  function handlePrint() {
-    const html = buildPrintHTML(data, pages, window.location.origin, canUseStamp ? showStamp : false, signature)
-    printLetter(html)
+  const [exporting, setExporting] = useState(false)
+
+  async function handleExportPDF() {
+    if (exporting) return
+    setExporting(true)
+    try {
+      const html = buildPrintHTML(
+        data, pages, window.location.origin,
+        canUseStamp ? showStamp : false, signature,
+      )
+      const safeSubject = (data.subject || data.recipient || 'خطاب').replace(/[\\/:*?"<>|]+/g, '_').slice(0, 80)
+      await generateLetterPDF(html, `${safeSubject}.pdf`)
+    } catch (e: any) {
+      alert(e?.message || 'تعذّر إنشاء ملف الـ PDF')
+    } finally {
+      setExporting(false)
+    }
   }
 
   function insertImage() {
@@ -597,10 +664,12 @@ export default function LetterGenerator() {
                        px-4 py-2.5 rounded-2xl font-bold text-sm transition shadow">
             <Save size={15} /> حفظ الخطاب
           </button>
-          <button onClick={handlePrint}
+          <button onClick={handleExportPDF} disabled={exporting}
             className="flex items-center gap-2 bg-[#1a365d] hover:bg-[#c5a059] text-white
-                       px-5 py-2.5 rounded-2xl font-bold text-sm transition shadow-lg hover:-translate-y-0.5 transform">
-            <Printer size={16} /> طباعة / PDF
+                       px-5 py-2.5 rounded-2xl font-bold text-sm transition shadow-lg hover:-translate-y-0.5 transform
+                       disabled:opacity-60 disabled:cursor-wait">
+            {exporting ? <Loader2 size={16} className="animate-spin" /> : <Printer size={16} />}
+            {exporting ? 'جاري الإنشاء…' : 'تصدير PDF'}
           </button>
         </div>
       </div>
