@@ -29,7 +29,7 @@ export async function GET() {
   results.push(await readMoyasar())
   results.push(await readVercelBlob())
   results.push(readResend())
-  results.push(readAnthropic())
+  results.push(await readAnthropic())
   results.push(await readVercelPlatform())
   results.push(await readNeon())
   results.push(readDomain())
@@ -151,9 +151,9 @@ function readResend(): ServiceResult {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Anthropic — usage report requires an ADMIN API key (sk-ant-admin01-*)
+   Anthropic — usage + cost reports via Admin API
 ───────────────────────────────────────────────────────────── */
-function readAnthropic(): ServiceResult {
+async function readAnthropic(): Promise<ServiceResult> {
   const adminKey = process.env.ANTHROPIC_ADMIN_API_KEY
   if (!adminKey) {
     return {
@@ -164,16 +164,57 @@ function readAnthropic(): ServiceResult {
       note: process.env.ANTHROPIC_API_KEY
         ? 'مفتاح API عادي موجود، لكن قراءة الاستهلاك تحتاج Admin Key'
         : 'لم تُضِف API key',
-      setup_hint: 'أنشئ Admin API key من console.anthropic.com ← Settings ← Admin Keys، وأضفه باسم ANTHROPIC_ADMIN_API_KEY.',
+      setup_hint: 'console.anthropic.com/settings/admin-keys → Create Admin Key. أضفه في Vercel باسم ANTHROPIC_ADMIN_API_KEY (Production + Preview) ثم Redeploy.',
     }
   }
-  // TODO: call https://api.anthropic.com/v1/organizations/usage_report/messages
-  return {
-    service: 'Anthropic (Claude)',
-    status: 'no_data',
-    monthly_sar: null,
-    usage: null,
-    note: 'سيتم إضافة قراءة Usage Report قريباً',
+  try {
+    // Current calendar month
+    const since = new Date(); since.setDate(1); since.setHours(0,0,0,0)
+    const starting_at = since.toISOString()
+
+    // Cost report — returns USD spend per day for the period
+    const headers: Record<string, string> = {
+      'x-api-key': adminKey,
+      'anthropic-version': '2023-06-01',
+    }
+    const url =
+      `https://api.anthropic.com/v1/organizations/cost_report?starting_at=${encodeURIComponent(starting_at)}` +
+      `&bucket_width=1d&limit=31`
+    const r = await fetch(url, { headers })
+    if (!r.ok) {
+      const text = await r.text().catch(() => '')
+      return svcError('Anthropic (Claude)', `HTTP ${r.status}: ${text.slice(0, 200)}`)
+    }
+    const data = await r.json() as any
+    const buckets: any[] = data?.data || []
+    let totalUSD = 0
+    let inputTokens = 0
+    let outputTokens = 0
+    for (const b of buckets) {
+      for (const r of b?.results || []) {
+        const cost = Number(r?.amount?.amount ?? r?.cost ?? r?.usd_amount ?? 0)
+        if (Number.isFinite(cost)) totalUSD += cost
+        if (Number.isFinite(Number(r?.usage?.input_tokens)))  inputTokens  += Number(r.usage.input_tokens)
+        if (Number.isFinite(Number(r?.usage?.output_tokens))) outputTokens += Number(r.usage.output_tokens)
+      }
+    }
+
+    return {
+      service: 'Anthropic (Claude)',
+      status: 'ok',
+      monthly_sar: Math.round(totalUSD * SAR_PER_USD * 100) / 100,
+      usage: {
+        spend_usd_this_month: Math.round(totalUSD * 100) / 100,
+        input_tokens:  inputTokens || undefined,
+        output_tokens: outputTokens || undefined,
+        billable_days: buckets.length,
+      },
+      note: totalUSD === 0
+        ? 'لم يُسجَّل استخدام مدفوع هذا الشهر بعد'
+        : `إجمالي الاستهلاك هذا الشهر: ${totalUSD.toFixed(2)}$ ≈ ${(totalUSD * SAR_PER_USD).toFixed(2)} ر.س`,
+    }
+  } catch (e: any) {
+    return svcError('Anthropic (Claude)', e.message || String(e))
   }
 }
 
