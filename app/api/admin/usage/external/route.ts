@@ -294,15 +294,28 @@ async function readNeon(): Promise<ServiceResult> {
       if (!projectId) return svcError('قاعدة البيانات Neon', 'لم يُعثر على مشاريع في الحساب')
     }
 
-    // 2) Project details — contains current plan + size limits
+    // 2) Project details — for storage size + org link
     const projR = await fetch(`https://console.neon.tech/api/v2/projects/${projectId}`, { headers })
     if (!projR.ok) return svcError('قاعدة البيانات Neon', `HTTP ${projR.status} على /projects/${projectId}`)
     const projData = await projR.json() as any
     const proj = projData.project || projData
-    const planLabel = (proj?.pg_settings?.plan || proj?.plan_id || proj?.org_id ? 'launch' : 'free').toString()
+    const orgId: string | undefined = proj?.org_id || proj?.owner_id
     const storageBytes = Number(proj?.synthetic_storage_size ?? proj?.data_storage_bytes_hour ?? 0)
 
-    // 3) Consumption history for the current month
+    // 3) Resolve the real plan — Neon plans live at the organization level
+    let planLabel = 'free'
+    if (orgId) {
+      try {
+        const orgR = await fetch(`https://console.neon.tech/api/v2/organizations/${orgId}`, { headers })
+        if (orgR.ok) {
+          const orgData = await orgR.json() as any
+          const o = orgData.organization || orgData
+          planLabel = (o?.plan || o?.subscription?.plan_name || 'free').toString().toLowerCase()
+        }
+      } catch { /* fall through with default 'free' */ }
+    }
+
+    // 4) Consumption history for the current month
     const since = new Date(); since.setDate(1); since.setHours(0,0,0,0)
     const consumeR = await fetch(
       `https://console.neon.tech/api/v2/consumption_history/projects?project_ids=${projectId}&from=${since.toISOString()}&to=${new Date().toISOString()}&granularity=monthly`,
