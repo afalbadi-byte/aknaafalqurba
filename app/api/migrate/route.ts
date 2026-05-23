@@ -169,6 +169,23 @@ const MIGRATIONS: { name: string; up: string }[] = [
     up: `ALTER TABLE members ADD COLUMN IF NOT EXISTS signature TEXT;`,
   },
   {
+    name: '024-clear-seeded-costs',
+    up: `
+      -- Wipe the initial defaults seeded by migration 023.
+      -- The admin will enter actual subscription costs manually based on
+      -- real invoices, and usage stats are fetched live from the DB.
+      DELETE FROM platform_costs WHERE service_name IN (
+        'استضافة Vercel',
+        'قاعدة البيانات (Neon / Vercel Postgres)',
+        'بريد Resend',
+        'Anthropic API (Claude)',
+        'Vercel Blob (تخزين الملفات)',
+        'بوابة الدفع Moyasar',
+        'نطاق aknaafalqurba.com'
+      );
+    `,
+  },
+  {
     name: '023-platform-costs',
     up: `
       CREATE TABLE IF NOT EXISTS platform_costs (
@@ -389,6 +406,15 @@ export async function GET() {
             WHERE table_name = 'platform_costs'
           `
           return { name: m.name, status: tbl ? 'applied' : 'pending' }
+        }
+        if (m.name.startsWith('024')) {
+          // One-shot cleanup migration — mark "applied" if the seeded
+          // defaults are no longer present.
+          const [row] = await sql`
+            SELECT COUNT(*)::int AS n FROM platform_costs
+            WHERE service_name IN ('استضافة Vercel', 'بريد Resend', 'نطاق aknaafalqurba.com')
+          `
+          return { name: m.name, status: row && row.n === 0 ? 'applied' : 'pending' }
         }
         return { name: m.name, status: 'unknown' }
       } catch {

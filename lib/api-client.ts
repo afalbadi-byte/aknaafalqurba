@@ -94,6 +94,7 @@ export const api = {
     create: (data: object)              => post('/api/admin/costs', data),
     update: (id: number, data: object)  => patch(`/api/admin/costs/${id}`, data),
     remove: (id: number)                => del(`/api/admin/costs/${id}`),
+    usage:  ()                          => get('/api/admin/usage'),
   },
   letters: {
     list:    (box: 'outgoing' | 'incoming' | 'all' = 'outgoing') => get(`/api/letters?box=${box}`),
