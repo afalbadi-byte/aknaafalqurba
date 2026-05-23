@@ -400,12 +400,16 @@ async function readHostinger(): Promise<ServiceResult[]> {
     })
 
     if (ours.length === 0) {
+      // Debug: show the keys of the first subscription so we can refine the filter
+      const sample = subs[0] ? { keys: Object.keys(subs[0]), first: subs[0] } : null
       return [{
         service: 'Hostinger',
         status: 'no_data',
         monthly_sar: null,
-        usage: null,
-        note: 'لم تُعثر اشتراكات تخصّ aknafalqurba في الحساب',
+        usage: { total_subs: subs.length, sample } as any,
+        note: subs.length
+          ? `${subs.length} اشتراك في الحساب لكن لا شي يطابق "aknafalqurba"`
+          : 'لم تُرجع API أي اشتراكات',
       }]
     }
 
