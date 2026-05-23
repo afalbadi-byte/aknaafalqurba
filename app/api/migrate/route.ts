@@ -169,6 +169,27 @@ const MIGRATIONS: { name: string; up: string }[] = [
     up: `ALTER TABLE members ADD COLUMN IF NOT EXISTS signature TEXT;`,
   },
   {
+    name: '025-phone-otp',
+    up: `
+      CREATE TABLE IF NOT EXISTS phone_otp (
+        id          SERIAL PRIMARY KEY,
+        phone       VARCHAR(20)   NOT NULL,
+        code_hash   VARCHAR(120)  NOT NULL,
+        channel     VARCHAR(20)   NOT NULL DEFAULT 'whatsapp',
+        purpose     VARCHAR(30)   NOT NULL DEFAULT 'login',
+        member_id   INT REFERENCES members(id) ON DELETE CASCADE,
+        attempts    SMALLINT      NOT NULL DEFAULT 0,
+        expires_at  TIMESTAMPTZ   NOT NULL,
+        used_at     TIMESTAMPTZ,
+        ip          VARCHAR(45),
+        created_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_phone_otp_phone   ON phone_otp(phone);
+      CREATE INDEX IF NOT EXISTS idx_phone_otp_active  ON phone_otp(phone, used_at, expires_at);
+      CREATE INDEX IF NOT EXISTS idx_phone_otp_member  ON phone_otp(member_id);
+    `,
+  },
+  {
     name: '024-clear-seeded-costs',
     up: `
       -- Wipe the initial defaults seeded by migration 023.
@@ -404,6 +425,13 @@ export async function GET() {
           const [tbl] = await sql`
             SELECT table_name FROM information_schema.tables
             WHERE table_name = 'platform_costs'
+          `
+          return { name: m.name, status: tbl ? 'applied' : 'pending' }
+        }
+        if (m.name.startsWith('025')) {
+          const [tbl] = await sql`
+            SELECT table_name FROM information_schema.tables
+            WHERE table_name = 'phone_otp'
           `
           return { name: m.name, status: tbl ? 'applied' : 'pending' }
         }

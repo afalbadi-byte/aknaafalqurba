@@ -36,6 +36,10 @@ export const api = {
       post('/api/auth/change-password', { current_password: cur, new_password: n }),
     verifyEmail:     (member_id: number, code: string) =>
       post('/api/auth/verify-email', { member_id, code }),
+    waSend:          (phone: string, purpose?: string) =>
+      post('/api/auth/whatsapp/send', { phone, purpose }),
+    waVerify:        (phone: string, code: string, purpose?: string) =>
+      post('/api/auth/whatsapp/verify', { phone, code, purpose }),
     resendVerification: (member_id: number) =>
       post('/api/auth/resend-verification', { member_id }),
     verifyId:        (member_id: number) => post('/api/auth/verify-id', { member_id }),
