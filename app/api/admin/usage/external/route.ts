@@ -32,7 +32,10 @@ export async function GET() {
   results.push(await readAnthropic())
   results.push(await readVercelPlatform())
   results.push(await readNeon())
-  results.push(readDomain())
+  // Hostinger may return MULTIPLE subscriptions (domain + email + extras),
+  // so it returns an array of ServiceResults that we flatten in.
+  const hostinger = await readHostinger()
+  for (const r of hostinger) results.push(r)
 
   return jsonOK({ services: results, sar_per_usd: SAR_PER_USD, generated_at: new Date().toISOString() })
 }
@@ -360,19 +363,77 @@ async function readNeon(): Promise<ServiceResult> {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Domain — there's no API for the registrar; mark as manual
+   Hostinger — pulls all subscriptions and filters to ones that
+   belong to this project (aknafalqurba.com), skipping items that
+   belong to other domains the same Hostinger account owns
+   (e.g. semak.sa).
 ───────────────────────────────────────────────────────────── */
-function readDomain(): ServiceResult {
-  const host = process.env.NEXT_PUBLIC_SITE_URL
-    ? new URL(process.env.NEXT_PUBLIC_SITE_URL).hostname
-    : null
-  return {
-    service: host ? `نطاق ${host}` : 'النطاق',
-    status: 'needs_token',
-    monthly_sar: null,
-    usage: null,
-    note: 'تجديد سنوي ثابت — لا يوجد API لقراءته تلقائياً',
-    setup_hint: 'أضف القيمة يدوياً في جدول الاشتراكات من فاتورة المسجّل.',
+const PROJECT_DOMAIN_TAGS = ['aknafalqurba']
+
+async function readHostinger(): Promise<ServiceResult[]> {
+  const tok = process.env.HOSTINGER_API_KEY
+  if (!tok) {
+    return [{
+      service: 'Hostinger (نطاق + بريد)',
+      status: 'needs_token',
+      monthly_sar: null,
+      usage: null,
+      note: 'لجلب اشتراكات Hostinger تلقائياً تحتاج API token',
+      setup_hint: 'hpanel.hostinger.com → Profile → API → Create token. أضفه في Vercel باسم HOSTINGER_API_KEY (Production + Preview) ثم Redeploy.',
+    }]
+  }
+  try {
+    const r = await fetch('https://developers.hostinger.com/api/billing/v1/subscriptions', {
+      headers: { Authorization: `Bearer ${tok}`, Accept: 'application/json' },
+    })
+    if (!r.ok) {
+      const text = await r.text().catch(() => '')
+      return [svcError('Hostinger', `HTTP ${r.status}: ${text.slice(0, 200)}`)]
+    }
+    const data = await r.json() as any
+    const subs: any[] = Array.isArray(data) ? data : (data.data || data.subscriptions || [])
+
+    // Keep only subs whose name/domain references this project (skip semak etc.)
+    const ours = subs.filter((s: any) => {
+      const blob = JSON.stringify(s).toLowerCase()
+      return PROJECT_DOMAIN_TAGS.some(t => blob.includes(t))
+    })
+
+    if (ours.length === 0) {
+      return [{
+        service: 'Hostinger',
+        status: 'no_data',
+        monthly_sar: null,
+        usage: null,
+        note: 'لم تُعثر اشتراكات تخصّ aknafalqurba في الحساب',
+      }]
+    }
+
+    return ours.map((s: any) => {
+      const name      = s.name || s.title || s.product_name || s.item_name || 'اشتراك Hostinger'
+      const domain    = s.domain || s.related_domain || s.metadata?.domain || ''
+      const priceUSD  = Number(s.renewal_price ?? s.next_billing_amount ?? s.price ?? s.amount ?? 0)
+      const taxUSD    = Number(s.taxes_amount ?? s.tax ?? s.taxes_and_fees ?? 0)
+      const period    = (s.billing_period || s.period_unit || 'year').toString().toLowerCase()
+      const expires   = s.expires_at || s.next_billing_at || s.renew_at
+      const totalUSD  = priceUSD + taxUSD
+      const monthsInPeriod = period.startsWith('month') ? 1 : 12
+      const monthlySAR = Math.round((totalUSD / monthsInPeriod) * SAR_PER_USD * 100) / 100
+
+      return {
+        service: domain ? `${name} (${domain})` : name,
+        status: 'ok',
+        monthly_sar: monthlySAR,
+        usage: {
+          renewal_total_usd: Math.round(totalUSD * 100) / 100,
+          period,
+          expires_at: expires || null,
+        },
+        note: `${totalUSD ? `$${totalUSD.toFixed(2)}/${period.startsWith('year') ? 'سنة' : 'شهر'}` : 'مجاني'}${expires ? ` — يجدّد ${String(expires).slice(0, 10)}` : ''}`,
+      } as ServiceResult
+    })
+  } catch (e: any) {
+    return [svcError('Hostinger', e.message || String(e))]
   }
 }
 
