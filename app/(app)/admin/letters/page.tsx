@@ -53,6 +53,23 @@ const PAGE_CSS = `
     box-shadow: 0 8px 40px rgba(0,0,0,0.18);
     overflow: hidden;
   }
+  /* Corner masks — cover the printer crop marks baked into the
+     letterhead PNG so each printed page has clean page-edge corners. */
+  .a4-page::before,
+  .a4-page::after {
+    content: '';
+    position: absolute;
+    pointer-events: none;
+    z-index: 1;
+    background:
+      linear-gradient(#fff, #fff) 0    0    / 7mm 7mm no-repeat,
+      linear-gradient(#fff, #fff) 100% 0    / 7mm 7mm no-repeat,
+      linear-gradient(#fff, #fff) 0    100% / 7mm 7mm no-repeat,
+      linear-gradient(#fff, #fff) 100% 100% / 7mm 7mm no-repeat;
+    inset: 0;
+  }
+  /* second pseudo can be used for edge strips if more masking needed */
+  .a4-page::after { background: none; }
 
   /* Metadata overlays — LEFT of label colons; REPEAT on EVERY page */
   /* Values sit over the kashida (ـــ) inside the label row, so they */
@@ -67,9 +84,9 @@ const PAGE_CSS = `
     border-radius: 1mm;
     line-height: 1;
   }
-  .mv-ref  { top: 17.6mm; }
-  .mv-date { top: 23.2mm; }
-  .mv-subj { top: 28.8mm; }
+  .mv-ref  { top: 18.6mm; }
+  .mv-date { top: 24.2mm; }
+  .mv-subj { top: 29.8mm; }
 
   /* Content area — inside top/bottom safe zones */
   .page-content {
@@ -122,14 +139,18 @@ const PAGE_CSS = `
     border-top: 1.5px solid #cbd5e1; padding-top: 6px; margin: 0;
   }
 
-  /* Page number — centered INSIDE the footer banner (middle empty area) */
+  /* Page number — small pill centered INSIDE the footer banner middle */
   .page-num {
     position: absolute;
-    bottom: 13mm;
-    left: 0; right: 0;
+    bottom: 12.5mm;
+    left: 50%; transform: translateX(-50%);
     text-align: center;
     font-size: 9.5px; font-weight: 700;
     color: #1a365d; letter-spacing: 0.5px;
+    background: rgba(255,255,255,0.92);
+    padding: 0.5mm 4mm;
+    border-radius: 2mm;
+    white-space: nowrap;
     z-index: 5;
   }
 
@@ -140,16 +161,46 @@ const PAGE_CSS = `
 `
 
 /* ─────────────────────────────────────────────────────────────
-   PAGINATOR — splits bodyHTML into chunks that fit A4 pages
+   PAGINATOR — splits bodyHTML into chunks that fit A4 pages.
+   Top-level children are walked; <ul>/<ol> are flattened into
+   per-<li> chunks (preserving the list wrapper around each item),
+   so long bullet lists break correctly across pages.
 ───────────────────────────────────────────────────────────── */
+type Chunk = { html: string; heightMM: number }
+
+function flattenChildren(parent: HTMLElement): Chunk[] {
+  const out: Chunk[] = []
+  for (const child of Array.from(parent.children) as HTMLElement[]) {
+    const tag = child.tagName.toLowerCase()
+    const heightMM = child.offsetHeight / PX_PER_MM
+
+    if ((tag === 'ul' || tag === 'ol') && child.children.length > 1) {
+      // Carry list-level attributes (style, start, type, class, ...) onto each split fragment
+      const attrs: string[] = []
+      for (const a of Array.from(child.attributes)) attrs.push(`${a.name}="${a.value.replace(/"/g, '&quot;')}"`)
+      const open = `<${tag}${attrs.length ? ' ' + attrs.join(' ') : ''}>`
+      const close = `</${tag}>`
+      for (const li of Array.from(child.children) as HTMLElement[]) {
+        out.push({
+          html:     `${open}${li.outerHTML}${close}`,
+          heightMM: li.offsetHeight / PX_PER_MM + 2, // small breathing room per item
+        })
+      }
+    } else {
+      out.push({ html: child.outerHTML, heightMM })
+    }
+  }
+  return out
+}
+
 function paginate(bodyHTML: string, hasIntro: boolean): string[] {
   if (typeof window === 'undefined') return [bodyHTML || ' ']
   const clean = (bodyHTML || '').trim()
   if (!clean) return [' ']
 
-  const SAFE_H_MM = PAGE.H - PAGE.TOP - PAGE.BOTTOM           // 223mm
-  const FULL_BODY_MM = SAFE_H_MM - PAGE.PAGE_NUM              // 217mm
-  const introMM = hasIntro ? PAGE.INTRO : 0
+  const SAFE_H_MM    = PAGE.H - PAGE.TOP - PAGE.BOTTOM        // safe content area
+  const FULL_BODY_MM = SAFE_H_MM - PAGE.PAGE_NUM              // minus page-number row
+  const introMM      = hasIntro ? PAGE.INTRO : 0
 
   // Hidden measure container (same width + styles as render)
   const measure = document.createElement('div')
@@ -168,40 +219,44 @@ function paginate(bodyHTML: string, hasIntro: boolean): string[] {
   try {
     const totalMM = measure.offsetHeight / PX_PER_MM
 
-    // Single page: intro + body + signature all fit
+    // Single-page short-circuit: intro + body + signature all fit
     if (introMM + totalMM + PAGE.SIG <= FULL_BODY_MM) {
       return [clean]
     }
 
-    // Multi-page walk
-    const children = Array.from(measure.children) as HTMLElement[]
-    if (children.length === 0) return [clean]
+    // Multi-page walk — flatten lists into per-item chunks
+    const chunks = flattenChildren(measure)
+    if (chunks.length === 0) return [clean]
 
-    const pages: HTMLElement[][] = [[]]
+    const pages: string[][] = [[]]
     let curMM = introMM // page 1 reserves intro space
 
-    for (const child of children) {
-      const cMM = child.offsetHeight / PX_PER_MM
-
-      if (curMM + cMM > FULL_BODY_MM && pages[pages.length - 1].length > 0) {
+    for (const c of chunks) {
+      if (curMM + c.heightMM > FULL_BODY_MM && pages[pages.length - 1].length > 0) {
         pages.push([])
         curMM = 0
       }
-      pages[pages.length - 1].push(child)
-      curMM += cMM
+      pages[pages.length - 1].push(c.html)
+      curMM += c.heightMM
     }
 
-    // Make sure the LAST page has room for the signature row.
-    // If not, push an empty page so signature gets its own page.
-    let lastMM = 0
-    for (const el of pages[pages.length - 1]) lastMM += el.offsetHeight / PX_PER_MM
+    // Ensure the LAST page has room for the signature row; push an
+    // empty page if it would otherwise overlap the signature area.
+    const lastChunks = pages[pages.length - 1]
+    let lastMM = lastChunks.reduce((s, html) => {
+      const tmp = document.createElement('div')
+      tmp.className = 'body-text'
+      tmp.style.cssText = measure.style.cssText
+      tmp.innerHTML = html
+      document.body.appendChild(tmp)
+      const h = tmp.offsetHeight / PX_PER_MM
+      document.body.removeChild(tmp)
+      return s + h
+    }, 0)
     if (pages.length === 1) lastMM += introMM
+    if (lastMM + PAGE.SIG > FULL_BODY_MM) pages.push([])
 
-    if (lastMM + PAGE.SIG > FULL_BODY_MM) {
-      pages.push([])
-    }
-
-    return pages.map(p => p.map(el => el.outerHTML).join('') || ' ')
+    return pages.map(p => p.join('') || ' ')
   } finally {
     document.body.removeChild(measure)
   }
