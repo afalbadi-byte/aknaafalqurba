@@ -32,26 +32,33 @@ export async function sendWhatsappOTP(toRaw: string, code: string): Promise<{ ok
   const to = normalisePhone(toRaw)
   if (!to || to.length < 11) return { ok: false, error: 'رقم جوال غير صالح' }
 
-  const body = {
+  // 'hello_world' is Meta's built-in test template — no parameters allowed.
+  // Used early on to verify the integration works before our own
+  // authentication template (e.g. aknafalqurba_otp) gets approved.
+  const isHelloWorld = tmplName === 'hello_world'
+
+  const body: any = {
     messaging_product: 'whatsapp',
     to,
     type: 'template',
     template: {
       name: tmplName,
       language: { code: lang },
-      components: [
-        {
-          type: 'body',
-          parameters: [{ type: 'text', text: code }],
-        },
-        {
-          type: 'button',
-          sub_type: 'url',
-          index: '0',
-          parameters: [{ type: 'text', text: code }],
-        },
-      ],
     },
+  }
+  if (!isHelloWorld) {
+    body.template.components = [
+      {
+        type: 'body',
+        parameters: [{ type: 'text', text: code }],
+      },
+      {
+        type: 'button',
+        sub_type: 'url',
+        index: '0',
+        parameters: [{ type: 'text', text: code }],
+      },
+    ]
   }
 
   try {
