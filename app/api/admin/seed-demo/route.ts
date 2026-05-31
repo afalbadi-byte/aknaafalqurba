@@ -11,9 +11,8 @@ import { requireRole, TOP_ADMIN_ROLES, hashPassword, jsonOK, jsonError, parseJso
  * required. Top-admin only.
  */
 export async function POST(req: NextRequest) {
-  // TEMP: allow unauthenticated bootstrap so the operator can seed a demo
-  // account before they have admin session. Auth will be re-enabled in a
-  // follow-up commit after the bootstrap call.
+  const { error } = await requireRole(TOP_ADMIN_ROLES)
+  if (error) return error
   const body = await parseJson(req)
   if (!body?.phone || !body?.password)
     return jsonError('missing', 'الجوال وكلمة السر مطلوبان', 400)
