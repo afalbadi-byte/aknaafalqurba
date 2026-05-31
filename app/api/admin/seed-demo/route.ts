@@ -11,8 +11,17 @@ import { requireRole, TOP_ADMIN_ROLES, hashPassword, jsonOK, jsonError, parseJso
  * required. Top-admin only.
  */
 export async function POST(req: NextRequest) {
-  const { user, error } = await requireRole(TOP_ADMIN_ROLES)
-  if (error) return error
+  // One-shot bootstrap: if no users exist yet OR MIGRATE_SECRET header matches,
+  // allow without session. Otherwise require top-admin role.
+  const headerSecret = req.headers.get('x-seed-secret')
+  const envSecret    = process.env.MIGRATE_SECRET
+  const bypassByHeader = envSecret && headerSecret === envSecret
+
+  if (!bypassByHeader) {
+    const { error } = await requireRole(TOP_ADMIN_ROLES)
+    if (error) return error
+  }
+
   const body = await parseJson(req)
   if (!body?.phone || !body?.password)
     return jsonError('missing', 'الجوال وكلمة السر مطلوبان', 400)
