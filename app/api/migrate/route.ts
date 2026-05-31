@@ -169,6 +169,13 @@ const MIGRATIONS: { name: string; up: string }[] = [
     up: `ALTER TABLE members ADD COLUMN IF NOT EXISTS signature TEXT;`,
   },
   {
+    name: '026-bypass-otp-flag',
+    up: `
+      ALTER TABLE members
+        ADD COLUMN IF NOT EXISTS bypass_otp BOOLEAN NOT NULL DEFAULT FALSE;
+    `,
+  },
+  {
     name: '025-phone-otp',
     up: `
       CREATE TABLE IF NOT EXISTS phone_otp (
@@ -427,6 +434,13 @@ export async function GET() {
             WHERE table_name = 'platform_costs'
           `
           return { name: m.name, status: tbl ? 'applied' : 'pending' }
+        }
+        if (m.name.startsWith('026')) {
+          const [col] = await sql`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'members' AND column_name = 'bypass_otp'
+          `
+          return { name: m.name, status: col ? 'applied' : 'pending' }
         }
         if (m.name.startsWith('025')) {
           const [tbl] = await sql`

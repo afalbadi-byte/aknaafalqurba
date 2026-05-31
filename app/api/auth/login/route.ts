@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { sql } from '@/lib/db'
-import { verifyPassword, jsonOK, jsonError, parseJson, requireFields } from '@/lib/auth'
+import { verifyPassword, jsonOK, jsonError, parseJson, requireFields, createSession } from '@/lib/auth'
 import { startVerification } from '@/lib/verification'
 import { log, getIP } from '@/lib/log'
 
@@ -35,6 +35,13 @@ export async function POST(req: NextRequest) {
 
   if (m.status === 'pending')   return jsonError('account_pending',   'حسابك بانتظار تفعيل لجنة الصندوق', 403)
   if (m.status === 'suspended') return jsonError('account_suspended', 'الحساب موقوف. تواصل مع الإدارة',  403)
+
+  // Demo / bypass accounts skip the OTP step entirely and log in straight away.
+  if (m.bypass_otp) {
+    await createSession(m.id, req)
+    void log(m.id, 'auth.login_bypass', { ip, member_name: m.full_name })
+    return jsonOK({ message: 'تم تسجيل الدخول', member_id: m.id })
+  }
 
   // ── OTP via email ──────────────────────────────────────────────────────────
   if (!m.email) {
